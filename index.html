@@ -462,7 +462,21 @@ const exTarget = ex => {
   if (ex.weight != null && ex.weight !== '') parts.push(`${fmtN(ex.weight)} kg`);
   return parts.join(' · ');
 };
-const setsTxt = sets => (sets||[]).map(s => `${s.r || '?'}${s.w != null && s.w !== '' ? '×' + fmtN(s.w) : ''}`).join(', ');
+// Second column of each set depends on the exercise: kg, lastre, treadmill incline, bike level, band, box height, or nothing.
+// Kg-type values live in `w` (they feed volume and strength charts); the rest live in `x`.
+const M2 = { kg: ['Kg', 'decimal'], lastre: ['Lastre kg', 'decimal'], incl: ['Inclinación', 'decimal'], nivel: ['Nivel', 'decimal'], vel: ['Velocidad', 'decimal'], banda: ['Banda', 'text'], cm: ['Altura cm', 'decimal'], none: ['Sin peso', ''] };
+const M1 = { reps: 'Reps', tiempo: 'Tiempo' };
+const NONE_RX = /\bcars\b|stretch|estiramiento|rueda abdominal|equilibrio|balance|toes curl|90\/90|frog|pigeon|seated leg raise|knee to feet|deep kneeling|apretar|estabilidad isometrica|isometric leg curl|elevacion isometrica|dorsiflexion dinamica|tibialis raises|plancha|plank/;
+function exMetric(ex) {
+  const n = norm(ex?.name), reps = String(ex?.reps ?? '');
+  const m2 = ex?.m2 || (/caminar|cinta|caminadora/.test(n) ? 'incl' : /bici|eliptica|elíptica/.test(n) ? 'nivel' : /drop jump/.test(n) ? 'cm'
+    : /banda|monster walk/.test(n) ? 'banda' : NONE_RX.test(n) ? 'none' : /lastrad|con lastre/.test(n) ? 'lastre' : 'kg');
+  const m1 = ex?.m1 || (/['"]/.test(reps) || /caminar|bici|stretch|isometric|equilibrio|balance|carry|plancha|plank|spanish squat/.test(n) ? 'tiempo' : 'reps');
+  return { m1, m2 };
+}
+const isKg = m2 => m2 === 'kg' || m2 === 'lastre';
+const fromNote = (note, m2) => { const re = { incl: /inclinaci[oó]n\s*(\d+(?:[.,]\d+)?)/i, nivel: /nivel\s*(\d+(?:[.,]\d+)?)/i, vel: /velocidad\s*(\d+(?:[.,]\d+)?)/i }[m2]; const m = re && String(note || '').match(re); return m ? m[1].replace(',', '.') : ''; };
+const setsTxt = (sets, m2) => (sets||[]).map(s => `${s.r || '?'}${s.w != null && s.w !== '' ? '×' + fmtN(s.w) : ''}${s.x != null && s.x !== '' ? ` · ${(M2[m2]?.[0] || '').toLowerCase()} ${s.x}`.replace(' ·  ', ' · ') : ''}`).join(', ');
 const dayExNames = d => (d.blocks||[]).flatMap(b => (b.exercises||[]).map(e => e.name));
 function lastLogFor(name, date, excludeId) {
   const k = norm(name);
@@ -620,7 +634,7 @@ function vProg() {
       <div class="tile"><span class="label">Cambio</span><span class="v" style="color:${lastW > firstW ? 'var(--good)' : 'inherit'}">${firstW != null ? (lastW - firstW >= 0 ? '+' : '') + fmtN(lastW - firstW) : '—'} <small>kg</small></span></div></div>
       ${pts.length ? lineChart(pts, { label: 'Peso máximo por sesión', unit: 'kg', color: 'var(--accent)', extra: rms.length > 1 ? rms : null }) : '<p class="muted small" style="margin:0">Este ejercicio no tiene pesos registrados (solo repeticiones o tiempo).</p>'}
       ${rms.length > 1 ? '<div class="legend"><span><b style="color:var(--accent)">—</b> Peso máximo</span><span><b style="color:var(--blue)">- -</b> 1RM estimado</span></div>' : ''}
-      <div class="hist">${[...h].reverse().slice(0, 12).map(x => `<div class="h"><span class="muted">${fmtD(x.date)}</span><span class="num">${esc(setsTxt(x.e.sets))}</span></div>`).join('')}</div></section>`;
+      <div class="hist">${[...h].reverse().slice(0, 12).map(x => `<div class="h"><span class="muted">${fmtD(x.date)}</span><span class="num">${esc(setsTxt(x.e.sets, x.e.m2))}</span></div>`).join('')}</div></section>`;
     const prs = names.map(([k,o]) => { const hh = exHistory(k).filter(x => x.mw != null); if (!hh.length) return null; const b = Math.max(...hh.map(x => x.mw)); return { name: o.name, b, d: b - hh[0].mw }; }).filter(Boolean).sort((a,b) => b.d - a.d).slice(0, 10);
     if (prs.length) html += `<section class="card"><h3>Récords y avance</h3><div class="hist">${prs.map(r => `<div class="h"><span>${esc(r.name)}</span><span class="num">${fmtN(r.b)} kg <span style="color:${r.d > 0 ? 'var(--good)' : 'var(--muted)'}">${r.d > 0 ? '+' + fmtN(r.d) : '='}</span></span></div>`).join('')}</div></section>`;
     // weekly volume
@@ -1535,16 +1549,21 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
   if (!isFree && !p && !existing) { toast('No encuentro esa rutina.'); return; }
   let items = [];
   if (existing) {
-    items = (existing.entries||[]).map(e => ({ name: e.name, block: e.block || '', tag: e.tag || '', target: e.target || {}, sets: clone(e.sets || []), last: lastLogFor(e.name, date, existing.id), custom: isFree }));
+    items = (existing.entries||[]).map(e => ({ name: e.name, block: e.block || '', tag: e.tag || '', target: e.target || {}, sets: clone(e.sets || []), last: lastLogFor(e.name, date, existing.id), custom: isFree,
+      m: exMetric({ name: e.name, reps: e.target?.reps, m1: e.m1, m2: e.m2 }) }));
   } else if (day) {
     (day.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => {
       const last = lastLogFor(ex.name, date, null);
+      const m = exMetric(ex);
       const n = Math.max(1, Number(ex.sets) || (last?.e.sets.length) || 1), sets = [];
-      for (let i = 0; i < n; i++) { const ls = last?.e.sets[i] || last?.e.sets[last.e.sets.length-1]; sets.push({ r: ls?.r ?? (ex.reps ?? ''), w: ls?.w ?? (ex.weight ?? ''), ok: false }); }
-      items.push({ name: ex.name, block: b.title || '', tag: b.tag || '', target: { sets: ex.sets, reps: ex.reps, weight: ex.weight, note: ex.note }, sets, last });
+      for (let i = 0; i < n; i++) {
+        const ls = last?.e.sets[i] || last?.e.sets[last.e.sets.length-1];
+        sets.push({ r: ls?.r ?? (ex.reps ?? ''), w: isKg(m.m2) ? (ls?.w ?? (ex.weight ?? '')) : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : (ls?.x ?? fromNote(ex.note, m.m2)), ok: false });
+      }
+      items.push({ name: ex.name, block: b.title || '', tag: b.tag || '', target: { sets: ex.sets, reps: ex.reps, weight: isKg(m.m2) ? ex.weight : null, note: ex.note }, sets, last, m });
     }));
   } else if (isFree) {
-    items.push({ name: '', block: '', tag: '', target: {}, sets: [{ r: '', w: '', ok: false }], last: null, custom: true });
+    items.push({ name: '', block: '', tag: '', target: {}, sets: [{ r: '', w: '', x: '', ok: false }], last: null, custom: true, m: { m1: 'reps', m2: 'kg' } });
   }
   const dayName = existing?.dayName || day?.name || 'Sesión libre';
   const t0 = Date.now(), live = !existing && date === today();
@@ -1556,9 +1575,10 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       const tgt = exTarget(it.target || {});
       return `${head}<div class="exl" data-i="${i}">
         <div class="row between">${it.custom ? `<input data-k="name" class="grow" value="${esc(it.name)}" placeholder="Nombre del ejercicio" list="exnames" aria-label="Ejercicio">` : `<h3 class="grow">${esc(it.name)}</h3>`}<button type="button" class="icon ghost" data-rmex="${i}" aria-label="Quitar ejercicio">×</button></div>
-        ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets))}</b>` : ''}</div>` : ''}
-        <div class="set"><span></span><span class="colh">Reps / tiempo</span><span class="colh">Kg</span><span></span><span></span></div>
-        <div class="sets">${it.sets.map((s, j) => `<div class="set" data-row><span class="i">${j+1}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="Reps serie ${j+1}"><input data-k="w" inputmode="decimal" value="${s.w ?? ''}" aria-label="Kg serie ${j+1}"><button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`).join('')}</div>
+        ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets, it.last.e.m2 || it.m.m2))}</b>` : ''}</div>` : ''}
+        ${(() => { const m = it.m || { m1: 'reps', m2: 'kg' }, none = m.m2 === 'none', k = isKg(m.m2) ? 'w' : 'x', lab = M2[m.m2]?.[0] || 'Kg';
+          return `<div class="set"><span></span><span class="colh"${none ? ' style="grid-column:span 2"' : ''}>${M1[m.m1] || 'Reps'}</span>${none ? '' : `<span class="colh">${lab}</span>`}<span></span><span></span></div>
+        <div class="sets">${it.sets.map((s, j) => `<div class="set" data-row><span class="i">${j+1}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="${M1[m.m1] || 'Reps'} serie ${j+1}"${none ? ' style="grid-column:span 2"' : ''}>${none ? '' : `<input data-k="${k}" inputmode="${M2[m.m2]?.[1] || 'decimal'}" value="${esc(s[k] ?? '')}" aria-label="${lab} serie ${j+1}"${m.m2 === 'banda' ? ' placeholder="color"' : ''}>`}<button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`).join('')}</div>`; })()}
         <button class="sm ghost" type="button" data-addset="${i}" style="align-self:flex-start">+ Serie</button></div>`;
     }).join('') || '<div class="empty">Sin ejercicios. Añade uno abajo.</div>';
   };
@@ -1584,7 +1604,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
     </div></div>`;
   openSheet(dayName, inner, sh => {
     const list = $('#lg-list', sh);
-    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r).value.trim(), ok: $('.ok', r).getAttribute('aria-pressed') === 'true' })); });
+    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true' })); });
     const draw = () => { list.innerHTML = exHtml(); };
     draw();
     let iv = null;
@@ -1636,7 +1656,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
     if (live) { const tm = $('#lg-timer', sh); iv = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); if (tm) tm.textContent = `${pad(Math.floor(s/60))}:${pad(s%60)}`; }, 1000); }
     sh.addEventListener('click', ev => {
       const a = ev.target.closest('[data-addset]');
-      if (a) { sync(); const it = items[+a.dataset.addset]; const l = it.sets[it.sets.length-1] || { r: '', w: '' }; it.sets.push({ r: l.r, w: l.w, ok: false }); draw(); return; }
+      if (a) { sync(); const it = items[+a.dataset.addset]; const l = it.sets[it.sets.length-1] || { r: '', w: '', x: '' }; it.sets.push({ r: l.r, w: l.w ?? '', x: l.x ?? '', ok: false }); draw(); return; }
       const rs = ev.target.closest('[data-rmset]');
       if (rs) { sync(); const [i, j] = rs.dataset.rmset.split(':').map(Number); items[i].sets.splice(j, 1); draw(); return; }
       const rx = ev.target.closest('[data-rmex]');
@@ -1644,16 +1664,24 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       const ok = ev.target.closest('.ok');
       if (ok) { const on = ok.getAttribute('aria-pressed') !== 'true'; ok.setAttribute('aria-pressed', on ? 'true' : 'false'); if (on && auto) { rest.left = rest.dur; restStart(); } return; }
     });
-    $('#lg-addex', sh).addEventListener('click', () => { sync(); items.push({ name: '', block: '', tag: '', target: {}, sets: [{ r: '', w: '', ok: false }], last: null, custom: true }); draw(); const ins = $$('[data-k="name"]', list); ins[ins.length-1]?.focus(); });
+    $('#lg-addex', sh).addEventListener('click', () => { sync(); items.push({ name: '', block: '', tag: '', target: {}, sets: [{ r: '', w: '', x: '', ok: false }], last: null, custom: true, m: { m1: 'reps', m2: 'kg' } }); draw(); const ins = $$('[data-k="name"]', list); ins[ins.length-1]?.focus(); });
     list.addEventListener('change', ev => {
       if (ev.target.dataset.k !== 'name') return;
       sync(); const i = +ev.target.closest('.exl').dataset.i; const it = items[i];
-      if (it.name && !it.last) { it.last = lastLogFor(it.name, date, existing?.id); if (it.last && it.sets.length === 1 && !it.sets[0].r && !it.sets[0].w) it.sets = it.last.e.sets.map(s => ({ r: s.r, w: s.w ?? '', ok: false })); draw(); }
+      if (it.name) {
+        it.m = exMetric({ name: it.name });
+        if (!it.last) { it.last = lastLogFor(it.name, date, existing?.id); if (it.last?.e.m2) it.m = exMetric({ name: it.name, m1: it.last.e.m1, m2: it.last.e.m2 }); if (it.last && it.sets.length === 1 && !it.sets[0].r && !it.sets[0].w && !it.sets[0].x) it.sets = it.last.e.sets.map(s => ({ r: s.r, w: s.w ?? '', x: s.x ?? '', ok: false })); }
+        draw();
+      }
     });
     $('#lg-save', sh).addEventListener('click', async () => {
       sync();
-      const entries = items.filter(it => it.name.trim()).map(it => ({ name: it.name.trim(), block: it.block, tag: it.tag, target: it.target || {},
-        sets: it.sets.map(s => ({ r: s.r, w: num(s.w), ok: s.ok })).filter(s => s.r !== '' || s.w != null) }));
+      const entries = items.filter(it => it.name.trim()).map(it => {
+        const m = it.m || exMetric({ name: it.name }), kg = isKg(m.m2), txt = M2[m.m2]?.[1] === 'text';
+        return { name: it.name.trim(), block: it.block, tag: it.tag, target: it.target || {}, m1: m.m1, m2: m.m2,
+          sets: it.sets.map(s => { const o = { r: s.r, w: kg ? num(s.w) : null, ok: s.ok }; if (!kg && m.m2 !== 'none' && s.x !== '' && s.x != null) o.x = txt ? String(s.x).trim() : num(s.x); return o; })
+            .filter(s => s.r !== '' || s.w != null || (s.x != null && s.x !== '')) };
+      });
       const progId = isFree ? 'libre' : p?.id || existing?.programId;
       let id = existing?.id || `${date}_${progId}_${isFree ? uid() : day.id}`;
       if (!existing && S.workouts.some(w => w.id === id)) id += '_' + uid();
@@ -1754,7 +1782,8 @@ function openEditor(pid) {
         ${(d.blocks||[]).map((b, bi) => `<div class="blked"><div class="row"><input class="grow" data-path="days.${di}.blocks.${bi}.title" value="${esc(b.title||'')}" placeholder="Bloque (ej. Hipertrofia, Core)" aria-label="Nombre del bloque"><select data-path="days.${di}.blocks.${bi}.tag" style="width:auto" aria-label="Color del bloque">${['', 'HIPERTROFIA', 'CORE', 'POTENCIA', 'MOVILIDAD'].map(t => `<option value="${t}"${b.tag === t ? ' selected' : ''}>${t || 'Etiqueta…'}</option>`).join('')}</select><button class="icon ghost" data-ed="rmblock" data-di="${di}" data-bi="${bi}" aria-label="Borrar bloque" style="color:var(--bad)">×</button></div>
           <div class="edrow edhead"><span>Ejercicio</span><span>Series</span><span>Reps</span><span>Kg</span><span></span></div>
           ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`; return `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><input data-path="${pth}.sets" data-type="num" inputmode="numeric" value="${ex.sets ?? ''}" aria-label="Series"><input data-path="${pth}.reps" value="${esc(ex.reps ?? '')}" aria-label="Reps"><input data-path="${pth}.weight" data-type="num" inputmode="decimal" value="${ex.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmex" data-di="${di}" data-bi="${bi}" data-ei="${ei}" aria-label="Quitar">×</button></div>
-            <input data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px;margin-top:-2px" aria-label="Nota">`; }).join('')}
+            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px" aria-label="Nota">
+            <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div>`; }).join('')}
           <button class="sm ghost" data-ed="addex" data-di="${di}" data-bi="${bi}" style="align-self:flex-start">+ Ejercicio</button></div>`).join('')}
         <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`).join('')}
       <button class="dashed" data-ed="addday">+ Añadir día</button>`;
