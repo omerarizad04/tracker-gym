@@ -251,6 +251,16 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 .set{display:grid;grid-template-columns:24px 1fr 1fr 44px 34px;gap:6px;align-items:center}
 .set .i{font-family:var(--font-mono);font-size:12px;color:var(--muted);text-align:center}
 .set input{text-align:center;padding:9px 4px}
+.set .i.rp{color:var(--fg);font-size:10px;letter-spacing:.06em}
+.subp{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
+.sets>.subp:first-child{margin-top:0;padding-top:2px;border-top:0}
+.subp .label{color:var(--fg)}
+.subp .t{font-size:12px;color:var(--muted)}
+.sets>.addp{align-self:flex-start;margin-left:30px}
+.edsub{display:flex;flex-direction:column;gap:6px;margin-left:6px;padding-left:10px;border-left:1px solid var(--edge)}
+.edsub .edrow input:first-child{font-size:13.5px}
+.rprow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap;font-size:13px;color:var(--muted)}
+.rprow input[type="text"],.rprow input:not([type]){width:58px;padding:5px 6px;font-size:13px;text-align:center}
 .colh{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:center}
 .ok{width:44px;height:40px;border-radius:12px;border:1px solid var(--line);background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--faint);min-height:0;padding:0}
 .ok[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
@@ -456,7 +466,18 @@ const lastBody = (f = 'weight') => [...S.body].filter(b => b[f] != null).sort((a
 const bmi = w => { const h = S.settings.heightCm; return (w && h) ? w / ((h/100)**2) : null; };
 const bmiCat = v => v == null ? '' : v < 18.5 ? 'Bajo peso' : v < 25 ? 'Normal' : v < 30 ? 'Sobrepeso' : 'Obesidad';
 const painColor = p => p == null ? 'var(--muted)' : p <= 2 ? 'var(--good)' : p <= 5 ? 'var(--warn)' : 'var(--bad)';
+// Sub-blocks: an exercise may carry `parts` (e.g. calves: unilateral then both feet), each with its own sets/reps/kg
+// and an optional rest-pause last set (rpW → rpTo kg). Logged sets keep `p` (part index) and `rp`.
+const hasV = v => v != null && v !== '';
+const partTarget = pt => {
+  const a = [];
+  if (pt.sets) a.push(`${pt.sets}×${pt.reps || '?'}`);
+  if (hasV(pt.weight)) a.push(`${fmtN(pt.weight)} kg`);
+  if (pt.rp) a.push(`última rest-pause${hasV(pt.rpW) ? ' ' + fmtN(pt.rpW) : ''}${hasV(pt.rpTo) ? ' → ' + fmtN(pt.rpTo) : ''}${hasV(pt.rpW) || hasV(pt.rpTo) ? ' kg' : ''}`);
+  return a.join(' · ');
+};
 const exTarget = ex => {
+  if (ex.parts?.length) return ex.parts.length > 1 ? `${ex.parts.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series en ${ex.parts.length} partes` : partTarget(ex.parts[0]);
   const parts = [];
   if (ex.sets) parts.push(`${ex.sets}×${ex.reps || '?'}`); else if (ex.reps) parts.push(ex.reps);
   if (ex.weight != null && ex.weight !== '') parts.push(`${fmtN(ex.weight)} kg`);
@@ -476,7 +497,14 @@ function exMetric(ex) {
 }
 const isKg = m2 => m2 === 'kg' || m2 === 'lastre';
 const fromNote = (note, m2) => { const re = { incl: /inclinaci[oó]n\s*(\d+(?:[.,]\d+)?)/i, nivel: /nivel\s*(\d+(?:[.,]\d+)?)/i, vel: /velocidad\s*(\d+(?:[.,]\d+)?)/i }[m2]; const m = re && String(note || '').match(re); return m ? m[1].replace(',', '.') : ''; };
-const setsTxt = (sets, m2) => (sets||[]).map(s => `${s.r || '?'}${s.w != null && s.w !== '' ? '×' + fmtN(s.w) : ''}${s.x != null && s.x !== '' ? ` · ${(M2[m2]?.[0] || '').toLowerCase()} ${s.x}`.replace(' ·  ', ' · ') : ''}`).join(', ');
+const set1Txt = (s, m2) => `${s.rp ? 'RP ' : ''}${s.r || '?'}${s.w != null && s.w !== '' ? '×' + fmtN(s.w) : ''}${s.x != null && s.x !== '' ? ` · ${(M2[m2]?.[0] || '').toLowerCase()} ${s.x}`.replace(' ·  ', ' · ') : ''}`;
+const setsTxt = (sets, m2, parts) => {
+  sets = sets || [];
+  if (!(parts?.length > 1)) return sets.map(s => set1Txt(s, m2)).join(', ');
+  return parts.map((pt, k) => { const ss = sets.filter(s => (s.p ?? 0) === k); return ss.length ? `${pt.label || 'Parte ' + (k + 1)}: ${ss.map(s => set1Txt(s, m2)).join(', ')}` : ''; }).filter(Boolean).join(' · ');
+};
+// "12+4+2" (rest-pause mini-sets) counts as 18 reps; times like 30" or 1' are not reps.
+const repsN = r => { const s = String(r ?? ''); if (!s || /['"]/.test(s)) return null; const xs = s.split('+').map(num); return xs.every(v => v != null) ? xs.reduce((a, b) => a + b, 0) : null; };
 const dayExNames = d => (d.blocks||[]).flatMap(b => (b.exercises||[]).map(e => e.name));
 function lastLogFor(name, date, excludeId) {
   const k = norm(name);
@@ -485,8 +513,8 @@ function lastLogFor(name, date, excludeId) {
   return null;
 }
 const maxW = e => { let m = null; (e.sets||[]).forEach(s => { const w = num(s.w); if (w != null && (m == null || w > m)) m = w; }); return m; };
-const e1rm = e => { let m = null; (e.sets||[]).forEach(s => { const w = num(s.w), r = num(s.r); if (w != null && r != null && r > 0 && r <= 15) { const v = w * (1 + r/30); if (m == null || v > m) m = v; } }); return m; };
-const volume = w => (w.entries||[]).reduce((t, e) => t + (e.sets||[]).reduce((a, s) => { const r = num(s.r), kg = num(s.w); return a + (r != null && kg != null && !/['"]/.test(s.r) ? r * kg : 0); }, 0), 0);
+const e1rm = e => { let m = null; (e.sets||[]).forEach(s => { if (s.rp) return; const w = num(s.w), r = num(s.r); if (w != null && r != null && r > 0 && r <= 15) { const v = w * (1 + r/30); if (m == null || v > m) m = v; } }); return m; };
+const volume = w => (w.entries||[]).reduce((t, e) => t + (e.sets||[]).reduce((a, s) => { const r = repsN(s.r), kg = num(s.w); return a + (r != null && kg != null ? r * kg : 0); }, 0), 0);
 const mondayOf = d => { const x = new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; };
 const weekDates = base => { const m = mondayOf(base); return Array.from({ length: 7 }, (_, i) => { const d = new Date(m); d.setDate(m.getDate() + i); return ymd(d); }); };
 
@@ -634,7 +662,7 @@ function vProg() {
       <div class="tile"><span class="label">Cambio</span><span class="v" style="color:${lastW > firstW ? 'var(--good)' : 'inherit'}">${firstW != null ? (lastW - firstW >= 0 ? '+' : '') + fmtN(lastW - firstW) : '—'} <small>kg</small></span></div></div>
       ${pts.length ? lineChart(pts, { label: 'Peso máximo por sesión', unit: 'kg', color: 'var(--accent)', extra: rms.length > 1 ? rms : null }) : '<p class="muted small" style="margin:0">Este ejercicio no tiene pesos registrados (solo repeticiones o tiempo).</p>'}
       ${rms.length > 1 ? '<div class="legend"><span><b style="color:var(--accent)">—</b> Peso máximo</span><span><b style="color:var(--blue)">- -</b> 1RM estimado</span></div>' : ''}
-      <div class="hist">${[...h].reverse().slice(0, 12).map(x => `<div class="h"><span class="muted">${fmtD(x.date)}</span><span class="num">${esc(setsTxt(x.e.sets, x.e.m2))}</span></div>`).join('')}</div></section>`;
+      <div class="hist">${[...h].reverse().slice(0, 12).map(x => `<div class="h"><span class="muted">${fmtD(x.date)}</span><span class="num">${esc(setsTxt(x.e.sets, x.e.m2, x.e.parts))}</span></div>`).join('')}</div></section>`;
     const prs = names.map(([k,o]) => { const hh = exHistory(k).filter(x => x.mw != null); if (!hh.length) return null; const b = Math.max(...hh.map(x => x.mw)); return { name: o.name, b, d: b - hh[0].mw }; }).filter(Boolean).sort((a,b) => b.d - a.d).slice(0, 10);
     if (prs.length) html += `<section class="card"><h3>Récords y avance</h3><div class="hist">${prs.map(r => `<div class="h"><span>${esc(r.name)}</span><span class="num">${fmtN(r.b)} kg <span style="color:${r.d > 0 ? 'var(--good)' : 'var(--muted)'}">${r.d > 0 ? '+' + fmtN(r.d) : '='}</span></span></div>`).join('')}</div></section>`;
     // weekly volume
@@ -1549,12 +1577,25 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
   if (!isFree && !p && !existing) { toast('No encuentro esa rutina.'); return; }
   let items = [];
   if (existing) {
-    items = (existing.entries||[]).map(e => ({ name: e.name, block: e.block || '', tag: e.tag || '', target: e.target || {}, sets: clone(e.sets || []), last: lastLogFor(e.name, date, existing.id), custom: isFree,
+    items = (existing.entries||[]).map(e => ({ name: e.name, block: e.block || '', tag: e.tag || '', target: e.target || {}, parts: e.parts?.length ? clone(e.parts) : null, sets: clone(e.sets || []), last: lastLogFor(e.name, date, existing.id), custom: isFree,
       m: exMetric({ name: e.name, reps: e.target?.reps, m1: e.m1, m2: e.m2 }) }));
   } else if (day) {
     (day.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => {
       const last = lastLogFor(ex.name, date, null);
       const m = exMetric(ex);
+      if (ex.parts?.length) {
+        const parts = ex.parts.map(pt => ({ label: pt.label || '', sets: Math.max(1, Number(pt.sets) || 1), reps: pt.reps ?? '', weight: pt.weight ?? null, rp: !!pt.rp, rpW: pt.rpW ?? null, rpTo: pt.rpTo ?? null }));
+        const same = last?.e.parts?.length === parts.length, sets = [];
+        parts.forEach((pt, k) => {
+          const prev = same ? last.e.sets.filter(s => (s.p ?? 0) === k) : [];
+          for (let i = 0; i < pt.sets; i++) {
+            const rp = pt.rp && i === pt.sets - 1, ls = prev[i] && !!prev[i].rp === rp ? prev[i] : null;
+            sets.push({ r: ls?.r ?? (rp ? '' : pt.reps), w: isKg(m.m2) ? (ls?.w ?? (rp ? (pt.rpW ?? pt.weight ?? '') : (pt.weight ?? ''))) : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : (ls?.x ?? fromNote(ex.note, m.m2)), ok: false, p: k, rp });
+          }
+        });
+        items.push({ name: ex.name, block: b.title || '', tag: b.tag || '', target: { parts, note: ex.note }, parts, sets, last, m });
+        return;
+      }
       const n = Math.max(1, Number(ex.sets) || (last?.e.sets.length) || 1), sets = [];
       for (let i = 0; i < n; i++) {
         const ls = last?.e.sets[i] || last?.e.sets[last.e.sets.length-1];
@@ -1575,11 +1616,23 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       const tgt = exTarget(it.target || {});
       return `${head}<div class="exl" data-i="${i}">
         <div class="row between">${it.custom ? `<input data-k="name" class="grow" value="${esc(it.name)}" placeholder="Nombre del ejercicio" list="exnames" aria-label="Ejercicio">` : `<h3 class="grow">${esc(it.name)}</h3>`}<button type="button" class="icon ghost" data-rmex="${i}" aria-label="Quitar ejercicio">×</button></div>
-        ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets, it.last.e.m2 || it.m.m2))}</b>` : ''}</div>` : ''}
+        ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets, it.last.e.m2 || it.m.m2, it.last.e.parts))}</b>` : ''}</div>` : ''}
         ${(() => { const m = it.m || { m1: 'reps', m2: 'kg' }, none = m.m2 === 'none', k = isKg(m.m2) ? 'w' : 'x', lab = M2[m.m2]?.[0] || 'Kg';
+          const P = it.parts?.length ? it.parts : null, multi = P && P.length > 1;
+          const row = (s, j, n) => `<div class="set" data-row${P ? ` data-p="${s.p ?? 0}" data-rp="${s.rp ? 1 : 0}"` : ''}><span class="i${s.rp ? ' rp' : ''}">${s.rp ? 'RP' : n}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="${s.rp ? 'Rest-pause' : (M1[m.m1] || 'Reps') + ' serie ' + n}"${s.rp ? ' placeholder="12+4+2"' : ''}${none ? ' style="grid-column:span 2"' : ''}>${none ? '' : `<input data-k="${k}" inputmode="${M2[m.m2]?.[1] || 'decimal'}" value="${esc(s[k] ?? '')}" aria-label="${lab} serie ${n}"${m.m2 === 'banda' ? ' placeholder="color"' : ''}>`}<button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`;
+          let rows = '', cur = null, n = 0;
+          it.sets.forEach((s, j) => {
+            if (multi && (s.p ?? 0) !== cur) {
+              if (cur != null) rows += `<button class="sm ghost addp" type="button" data-addset="${i}:${cur}">+ Serie</button>`;
+              cur = s.p ?? 0; n = 0; const pt = P[cur] || {};
+              rows += `<div class="subp"><span class="label">${esc(pt.label || 'Parte ' + (cur + 1))}</span><span class="t">${esc(partTarget(pt))}</span></div>`;
+            }
+            rows += row(s, j, P ? ++n : j + 1);
+          });
+          if (multi && cur != null) rows += `<button class="sm ghost addp" type="button" data-addset="${i}:${cur}">+ Serie</button>`;
           return `<div class="set"><span></span><span class="colh"${none ? ' style="grid-column:span 2"' : ''}>${M1[m.m1] || 'Reps'}</span>${none ? '' : `<span class="colh">${lab}</span>`}<span></span><span></span></div>
-        <div class="sets">${it.sets.map((s, j) => `<div class="set" data-row><span class="i">${j+1}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="${M1[m.m1] || 'Reps'} serie ${j+1}"${none ? ' style="grid-column:span 2"' : ''}>${none ? '' : `<input data-k="${k}" inputmode="${M2[m.m2]?.[1] || 'decimal'}" value="${esc(s[k] ?? '')}" aria-label="${lab} serie ${j+1}"${m.m2 === 'banda' ? ' placeholder="color"' : ''}>`}<button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`).join('')}</div>`; })()}
-        <button class="sm ghost" type="button" data-addset="${i}" style="align-self:flex-start">+ Serie</button></div>`;
+        <div class="sets">${rows}</div>${multi ? '' : `<button class="sm ghost" type="button" data-addset="${i}" style="align-self:flex-start">+ Serie</button>`}`; })()}
+        </div>`;
     }).join('') || '<div class="empty">Sin ejercicios. Añade uno abajo.</div>';
   };
   const known = [...new Set([...S.programs.flatMap(pp => (pp.days||[]).flatMap(dayExNames)), ...S.workouts.flatMap(w => (w.entries||[]).map(e => e.name))])];
@@ -1604,7 +1657,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
     </div></div>`;
   openSheet(dayName, inner, sh => {
     const list = $('#lg-list', sh);
-    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true' })); });
+    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true', ...(r.dataset.p != null ? { p: +r.dataset.p, rp: r.dataset.rp === '1' } : {}) })); });
     const draw = () => { list.innerHTML = exHtml(); };
     draw();
     let iv = null;
@@ -1656,7 +1709,19 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
     if (live) { const tm = $('#lg-timer', sh); iv = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); if (tm) tm.textContent = `${pad(Math.floor(s/60))}:${pad(s%60)}`; }, 1000); }
     sh.addEventListener('click', ev => {
       const a = ev.target.closest('[data-addset]');
-      if (a) { sync(); const it = items[+a.dataset.addset]; const l = it.sets[it.sets.length-1] || { r: '', w: '', x: '' }; it.sets.push({ r: l.r, w: l.w ?? '', x: l.x ?? '', ok: false }); draw(); return; }
+      if (a) {
+        sync(); const [ai, ap] = a.dataset.addset.split(':'); const it = items[+ai];
+        const k = ap != null ? +ap : it.parts?.length ? (it.sets[it.sets.length-1]?.p ?? 0) : null;
+        if (k == null) { const l = it.sets[it.sets.length-1] || { r: '', w: '', x: '' }; it.sets.push({ r: l.r, w: l.w ?? '', x: l.x ?? '', ok: false }); }
+        else {
+          // a new normal set goes right before the part's rest-pause set
+          const idx = it.sets.map((s, j) => j).filter(j => (it.sets[j].p ?? 0) === k), nor = idx.filter(j => !it.sets[j].rp);
+          const src = it.sets[nor.length ? nor[nor.length-1] : idx[idx.length-1]] || {}, pt = it.parts[k] || {};
+          const at = nor.length ? nor[nor.length-1] + 1 : idx.length ? idx[0] : it.sets.length;
+          it.sets.splice(at, 0, { r: src.rp ? (pt.reps ?? '') : (src.r ?? ''), w: src.rp ? (pt.weight ?? src.w ?? '') : (src.w ?? ''), x: src.x ?? '', ok: false, p: k, rp: false });
+        }
+        draw(); return;
+      }
       const rs = ev.target.closest('[data-rmset]');
       if (rs) { sync(); const [i, j] = rs.dataset.rmset.split(':').map(Number); items[i].sets.splice(j, 1); draw(); return; }
       const rx = ev.target.closest('[data-rmex]');
@@ -1678,8 +1743,9 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       sync();
       const entries = items.filter(it => it.name.trim()).map(it => {
         const m = it.m || exMetric({ name: it.name }), kg = isKg(m.m2), txt = M2[m.m2]?.[1] === 'text';
-        return { name: it.name.trim(), block: it.block, tag: it.tag, target: it.target || {}, m1: m.m1, m2: m.m2,
-          sets: it.sets.map(s => { const o = { r: s.r, w: kg ? num(s.w) : null, ok: s.ok }; if (!kg && m.m2 !== 'none' && s.x !== '' && s.x != null) o.x = txt ? String(s.x).trim() : num(s.x); return o; })
+        const P = it.parts?.length ? it.parts : null;
+        return { name: it.name.trim(), block: it.block, tag: it.tag, target: it.target || {}, m1: m.m1, m2: m.m2, ...(P ? { parts: P } : {}),
+          sets: it.sets.map(s => { const o = { r: s.r, w: kg ? num(s.w) : null, ok: s.ok }; if (P) { o.p = s.p ?? 0; if (s.rp) o.rp = true; } if (!kg && m.m2 !== 'none' && s.x !== '' && s.x != null) o.x = txt ? String(s.x).trim() : num(s.x); return o; })
             .filter(s => s.r !== '' || s.w != null || (s.x != null && s.x !== '')) };
       });
       const progId = isFree ? 'libre' : p?.id || existing?.programId;
@@ -1694,7 +1760,15 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       if (ok && p && day && $('#lg-upd', sh)?.checked) {
         const np = clone(p); let changed = 0;
         const nd = np.days.find(d => d.id === day.id);
-        (nd.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => { const e = entries.find(e => norm(e.name) === norm(ex.name)); const m = e ? maxW(e) : null; if (m != null && (ex.weight == null || ex.weight === '' || m > Number(ex.weight))) { ex.weight = m; changed++; } }));
+        (nd.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => { const e = entries.find(e => norm(e.name) === norm(ex.name));
+          if (ex.parts?.length) {
+            if (!e || e.parts?.length !== ex.parts.length) return;
+            ex.parts.forEach((pt, k) => { const ss = e.sets.filter(s => (s.p ?? 0) === k), mn = maxW({ sets: ss.filter(s => !s.rp) }), mr = maxW({ sets: ss.filter(s => s.rp) });
+              if (mn != null && (!hasV(pt.weight) || mn > Number(pt.weight))) { pt.weight = mn; changed++; }
+              if (pt.rp && mr != null && hasV(pt.rpW) && mr > Number(pt.rpW)) { pt.rpW = mr; changed++; } });
+            return;
+          }
+          const m = e ? maxW(e) : null; if (m != null && (ex.weight == null || ex.weight === '' || m > Number(ex.weight))) { ex.weight = m; changed++; } }));
         if (changed) await write(db => db.doc('programs/' + np.id).set(body(np)), `Guardado · ${changed} objetivo${changed > 1 ? 's' : ''} subido${changed > 1 ? 's' : ''}`);
       }
       if (ok) closeSheet(); else btn.disabled = false;
@@ -1766,6 +1840,36 @@ function openJoint(jid) {
   });
 }
 
+/* ---------- one-time fix: rest-pause as sub-blocks ----------
+   Calves were loaded as 3 exercises (horizontal / unilateral / rest-pause); merge them into one exercise with two parts
+   (unilateral then both feet, each ending in a rest-pause set). Notes like "Rest-pause → 41" become an RP last set. */
+let rpMigrated = false;
+async function migrateRP() {
+  if (rpMigrated || !S.db) return; rpMigrated = true;
+  for (const p of S.programs) {
+    const np = clone(p); let ch = 0;
+    (np.days||[]).forEach(d => (d.blocks||[]).forEach(b => {
+      const xs = b.exercises || [];
+      const main = xs.find(e => !e.parts && /gemelos en prensa horizontal/i.test(e.name)), uni = xs.find(e => !e.parts && /gemelos en prensa unilateral/i.test(e.name)), rpx = xs.find(e => !e.parts && /gemelos en prensa rest.?pause/i.test(e.name));
+      if (main && uni && rpx) {
+        const drop = num((String(rpx.note || '').match(/→\s*(\d+(?:[.,]\d+)?)/) || [])[1]);
+        main.parts = [
+          { label: 'Unilateral', sets: 3, reps: uni.reps || '12', weight: uni.weight ?? null, rp: true, rpW: uni.weight ?? null, rpTo: null },
+          { label: 'Ambos pies', sets: 3, reps: main.reps || '12', weight: main.weight ?? null, rp: true, rpW: rpx.weight ?? null, rpTo: drop } ];
+        main.sets = 6; main.reps = main.parts[0].reps; main.weight = main.parts[0].weight;
+        b.exercises = xs.filter(e => e !== uni && e !== rpx); ch++;
+      }
+      b.exercises.forEach(e => {
+        if (e.parts) return;
+        const mm = String(e.note || '').match(/^\s*rest.?pause\s*→\s*(\d+(?:[.,]\d+)?)\s*(?:·\s*)?/i); if (!mm) return;
+        e.parts = [{ label: '', sets: Number(e.sets) || 2, reps: e.reps ?? '', weight: e.weight ?? null, rp: true, rpW: e.weight ?? null, rpTo: num(mm[1]) }];
+        e.note = String(e.note).slice(mm[0].length).trim(); ch++;
+      });
+    }));
+    if (ch) await write(db => db.doc('programs/' + np.id).set(body(np)), 'Rest-pause organizado en sub-bloques');
+  }
+}
+
 /* ---------- program editor ---------- */
 function openEditor(pid) {
   const src = prog(pid);
@@ -1781,8 +1885,13 @@ function openEditor(pid) {
         <label class="f"><span class="label">Día de la semana</span><select data-path="days.${di}.weekday" data-type="weekday"><option value="">Sin día fijo</option>${[1,2,3,4,5,6,0].map(w => `<option value="${w}"${d.weekday === w ? ' selected' : ''}>${DOW[w]}</option>`).join('')}</select></label></div>
         ${(d.blocks||[]).map((b, bi) => `<div class="blked"><div class="row"><input class="grow" data-path="days.${di}.blocks.${bi}.title" value="${esc(b.title||'')}" placeholder="Bloque (ej. Hipertrofia, Core)" aria-label="Nombre del bloque"><select data-path="days.${di}.blocks.${bi}.tag" style="width:auto" aria-label="Color del bloque">${['', 'HIPERTROFIA', 'CORE', 'POTENCIA', 'MOVILIDAD'].map(t => `<option value="${t}"${b.tag === t ? ' selected' : ''}>${t || 'Etiqueta…'}</option>`).join('')}</select><button class="icon ghost" data-ed="rmblock" data-di="${di}" data-bi="${bi}" aria-label="Borrar bloque" style="color:var(--bad)">×</button></div>
           <div class="edrow edhead"><span>Ejercicio</span><span>Series</span><span>Reps</span><span>Kg</span><span></span></div>
-          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`; return `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><input data-path="${pth}.sets" data-type="num" inputmode="numeric" value="${ex.sets ?? ''}" aria-label="Series"><input data-path="${pth}.reps" value="${esc(ex.reps ?? '')}" aria-label="Reps"><input data-path="${pth}.weight" data-type="num" inputmode="decimal" value="${ex.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmex" data-di="${di}" data-bi="${bi}" data-ei="${ei}" aria-label="Quitar">×</button></div>
-            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px" aria-label="Nota">
+          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`, ids = `data-di="${di}" data-bi="${bi}" data-ei="${ei}"`, P = ex.parts?.length ? ex.parts : null;
+            const head = P ? `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><span class="muted small" style="grid-column:span 3;text-align:center">${P.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series · ${P.length} ${P.length > 1 ? 'partes' : 'parte'}</span><button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button></div>
+            <div class="edsub">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="${P.length > 1 ? 'Sub-bloque (ej. Unilateral)' : 'Sub-bloque (opcional)'}" aria-label="Nombre del sub-bloque"><input data-path="${pp}.sets" data-type="num" inputmode="numeric" value="${pt.sets ?? ''}" aria-label="Series"><input data-path="${pp}.reps" value="${esc(pt.reps ?? '')}" aria-label="Reps"><input data-path="${pp}.weight" data-type="num" inputmode="decimal" value="${pt.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button></div>
+              <div class="rprow"><label class="row small" style="gap:6px"><input type="checkbox" data-path="${pp}.rp" data-type="bool"${pt.rp ? ' checked' : ''} style="width:auto"> Última en RP</label>${pt.rp ? `<input data-path="${pp}.rpW" data-type="num" inputmode="decimal" value="${pt.rpW ?? ''}" placeholder="kg" aria-label="Kg al empezar el rest-pause"> → <input data-path="${pp}.rpTo" data-type="num" inputmode="decimal" value="${pt.rpTo ?? ''}" placeholder="kg" aria-label="Kg al bajar"> kg` : ''}</div>`; }).join('')}</div>`
+            : `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><input data-path="${pth}.sets" data-type="num" inputmode="numeric" value="${ex.sets ?? ''}" aria-label="Series"><input data-path="${pth}.reps" value="${esc(ex.reps ?? '')}" aria-label="Reps"><input data-path="${pth}.weight" data-type="num" inputmode="decimal" value="${ex.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button></div>`;
+            return `${head}
+            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px" aria-label="Nota"><button class="sm ghost" data-ed="addpart" ${ids} style="white-space:nowrap;font-size:12.5px;padding:5px 8px">+ Sub-bloque</button>
             <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div>`; }).join('')}
           <button class="sm ghost" data-ed="addex" data-di="${di}" data-bi="${bi}" style="align-self:flex-start">+ Ejercicio</button></div>`).join('')}
         <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`).join('')}
@@ -1793,8 +1902,9 @@ function openEditor(pid) {
     draw(sh);
     const onInput = ev => {
       const el = ev.target, path = el.dataset?.path; if (!path) return;
-      let v = el.value; if (el.dataset.type === 'num') v = num(v); if (el.dataset.type === 'weekday') v = v === '' ? null : Number(v);
+      let v = el.value; if (el.dataset.type === 'num') v = num(v); if (el.dataset.type === 'weekday') v = v === '' ? null : Number(v); if (el.dataset.type === 'bool') v = el.checked;
       const ks = path.split('.'); let o = draft; for (let i = 0; i < ks.length - 1; i++) o = o[ks[i]]; o[ks[ks.length-1]] = v;
+      if (el.dataset.type === 'bool' && ev.type === 'change') { if (v && ks[ks.length-1] === 'rp' && !hasV(o.rpW)) o.rpW = o.weight ?? null; const y = sh.scrollTop; draw(sh); sh.scrollTop = y; }
     };
     sh.addEventListener('input', onInput); sh.addEventListener('change', onInput);
     sh.addEventListener('click', ev => {
@@ -1803,6 +1913,11 @@ function openEditor(pid) {
       switch (b.dataset.ed) {
         case 'addex': D[di].blocks[bi].exercises.push({ id: uid(), name: '', sets: 2, reps: '', weight: null, note: '' }); break;
         case 'rmex': D[di].blocks[bi].exercises.splice(ei, 1); break;
+        case 'addpart': { const ex = D[di].blocks[bi].exercises[ei];
+          if (!ex.parts?.length) ex.parts = [{ label: '', sets: ex.sets || 2, reps: ex.reps ?? '', weight: ex.weight ?? null, rp: false, rpW: null, rpTo: null }];
+          else { const l = ex.parts[ex.parts.length-1]; if (ex.parts.length === 1 && !l.label) l.label = 'Parte 1'; ex.parts.push({ label: '', sets: l.sets || 2, reps: l.reps ?? '', weight: l.weight ?? null, rp: !!l.rp, rpW: l.rpW ?? null, rpTo: l.rpTo ?? null }); }
+          break; }
+        case 'rmpart': { const ex = D[di].blocks[bi].exercises[ei]; ex.parts.splice(+b.dataset.k, 1); if (!ex.parts.length) delete ex.parts; break; }
         case 'addblock': D[di].blocks.push({ id: uid(), title: '', tag: '', exercises: [] }); break;
         case 'rmblock': D[di].blocks.splice(bi, 1); break;
         case 'addday': D.push({ id: uid(), name: 'Día ' + (D.length + 1), weekday: null, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }); break;
@@ -1813,6 +1928,8 @@ function openEditor(pid) {
     });
     $('#ed-save', sh).addEventListener('click', async () => {
       draft.days.forEach(d => d.blocks.forEach(b => b.exercises = b.exercises.filter(e => (e.name||'').trim())));
+      // keep sets/reps/weight on the exercise as a summary of its sub-blocks
+      draft.days.forEach(d => d.blocks.forEach(b => b.exercises.forEach(e => { if (!e.parts?.length) { delete e.parts; return; } e.sets = e.parts.reduce((t, pt) => t + (Number(pt.sets) || 0), 0); e.reps = e.parts[0].reps ?? ''; e.weight = e.parts[0].weight ?? null; })));
       if (await write(db => db.doc('programs/' + draft.id).set(body(draft)), 'Rutina guardada')) closeSheet();
     });
     const del = $('#ed-del', sh);
@@ -1912,7 +2029,7 @@ async function boot() {
   const got = (k, snap) => { if (!snap.metadata.fromCache && pending.delete(k) && !pending.size) { S.ready = true; S.slow = false; clearTimeout(timer); } scheduleRender(); };
   const onErr = k => e => { pending.delete(k); if (!pending.size) { S.ready = true; clearTimeout(timer); } if (e?.code === 'revoked' || e?.code === 'not_granted') S.noDb = true; scheduleRender(); };
   const list = s => s.docs.map(d => ({ id: d.id, ...d.data() }));
-  db.collection('programs').onSnapshot(s => { S.programs = list(s).sort((a,b) => (a.order ?? 0) - (b.order ?? 0)); got('programs', s); }, onErr('programs'));
+  db.collection('programs').onSnapshot(s => { S.programs = list(s).sort((a,b) => (a.order ?? 0) - (b.order ?? 0)); got('programs', s); if (!s.metadata.fromCache) migrateRP(); }, onErr('programs'));
   db.collection('workouts').onSnapshot(s => { S.workouts = list(s); got('workouts', s); }, onErr('workouts'));
   db.collection('body').onSnapshot(s => { S.body = list(s); got('body', s); }, onErr('body'));
   db.collection('checkins').onSnapshot(s => { S.checkins = list(s); got('checkins', s); }, onErr('checkins'));
