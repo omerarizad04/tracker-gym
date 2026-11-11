@@ -256,7 +256,8 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 .sets>.subp:first-child{margin-top:0;padding-top:2px;border-top:0}
 .subp .label{color:var(--fg)}
 .subp .t{font-size:12px;color:var(--muted)}
-.sets>.addp{align-self:flex-start;margin-left:30px}
+.addrow{display:flex;gap:6px;align-self:flex-start}
+.sets>.addp{margin-left:30px}
 .edsub{display:flex;flex-direction:column;gap:6px;margin-left:6px;padding-left:10px;border-left:1px solid var(--edge)}
 .edsub .edrow input:first-child{font-size:13.5px}
 .rprow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap;font-size:13px;color:var(--muted)}
@@ -1619,19 +1620,20 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
         ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets, it.last.e.m2 || it.m.m2, it.last.e.parts))}</b>` : ''}</div>` : ''}
         ${(() => { const m = it.m || { m1: 'reps', m2: 'kg' }, none = m.m2 === 'none', k = isKg(m.m2) ? 'w' : 'x', lab = M2[m.m2]?.[0] || 'Kg';
           const P = it.parts?.length ? it.parts : null, multi = P && P.length > 1;
-          const row = (s, j, n) => `<div class="set" data-row${P ? ` data-p="${s.p ?? 0}" data-rp="${s.rp ? 1 : 0}"` : ''}><span class="i${s.rp ? ' rp' : ''}">${s.rp ? 'RP' : n}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="${s.rp ? 'Rest-pause' : (M1[m.m1] || 'Reps') + ' serie ' + n}"${s.rp ? ' placeholder="12+4+2"' : ''}${none ? ' style="grid-column:span 2"' : ''}>${none ? '' : `<input data-k="${k}" inputmode="${M2[m.m2]?.[1] || 'decimal'}" value="${esc(s[k] ?? '')}" aria-label="${lab} serie ${n}"${m.m2 === 'banda' ? ' placeholder="color"' : ''}>`}<button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`;
+          const row = (s, j, n) => `<div class="set" data-row${P ? ` data-p="${s.p ?? 0}"` : ''} data-rp="${s.rp ? 1 : 0}"><span class="i${s.rp ? ' rp' : ''}">${s.rp ? 'RP' : n}</span><input data-k="r" inputmode="text" value="${esc(s.r ?? '')}" aria-label="${s.rp ? 'Rest-pause' : (M1[m.m1] || 'Reps') + ' serie ' + n}"${s.rp ? ' placeholder="12+4+2"' : ''}${none ? ' style="grid-column:span 2"' : ''}>${none ? '' : `<input data-k="${k}" inputmode="${M2[m.m2]?.[1] || 'decimal'}" value="${esc(s[k] ?? '')}" aria-label="${lab} serie ${n}"${m.m2 === 'banda' ? ' placeholder="color"' : ''}>`}<button type="button" class="ok" aria-pressed="${s.ok ? 'true' : 'false'}" aria-label="Serie hecha">✓</button><button type="button" class="icon ghost" data-rmset="${i}:${j}" aria-label="Quitar serie">−</button></div>`;
+          const adds = key => `<div class="addrow${multi ? ' addp' : ''}"><button class="sm ghost" type="button" data-addset="${key}">+ Serie</button><button class="sm ghost" type="button" data-addset="${key}" data-kind="rp">+ Serie RP</button></div>`;
           let rows = '', cur = null, n = 0;
           it.sets.forEach((s, j) => {
             if (multi && (s.p ?? 0) !== cur) {
-              if (cur != null) rows += `<button class="sm ghost addp" type="button" data-addset="${i}:${cur}">+ Serie</button>`;
+              if (cur != null) rows += adds(`${i}:${cur}`);
               cur = s.p ?? 0; n = 0; const pt = P[cur] || {};
               rows += `<div class="subp"><span class="label">${esc(pt.label || 'Parte ' + (cur + 1))}</span><span class="t">${esc(partTarget(pt))}</span></div>`;
             }
-            rows += row(s, j, P ? ++n : j + 1);
+            rows += row(s, j, s.rp ? 0 : ++n);
           });
-          if (multi && cur != null) rows += `<button class="sm ghost addp" type="button" data-addset="${i}:${cur}">+ Serie</button>`;
+          if (multi && cur != null) rows += adds(`${i}:${cur}`);
           return `<div class="set"><span></span><span class="colh"${none ? ' style="grid-column:span 2"' : ''}>${M1[m.m1] || 'Reps'}</span>${none ? '' : `<span class="colh">${lab}</span>`}<span></span><span></span></div>
-        <div class="sets">${rows}</div>${multi ? '' : `<button class="sm ghost" type="button" data-addset="${i}" style="align-self:flex-start">+ Serie</button>`}`; })()}
+        <div class="sets">${rows}</div>${multi ? '' : adds(String(i))}`; })()}
         </div>`;
     }).join('') || '<div class="empty">Sin ejercicios. Añade uno abajo.</div>';
   };
@@ -1657,7 +1659,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
     </div></div>`;
   openSheet(dayName, inner, sh => {
     const list = $('#lg-list', sh);
-    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true', ...(r.dataset.p != null ? { p: +r.dataset.p, rp: r.dataset.rp === '1' } : {}) })); });
+    const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true', rp: r.dataset.rp === '1', ...(r.dataset.p != null ? { p: +r.dataset.p } : {}) })); });
     const draw = () => { list.innerHTML = exHtml(); };
     draw();
     let iv = null;
@@ -1711,14 +1713,19 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       const a = ev.target.closest('[data-addset]');
       if (a) {
         sync(); const [ai, ap] = a.dataset.addset.split(':'); const it = items[+ai];
-        const k = ap != null ? +ap : it.parts?.length ? (it.sets[it.sets.length-1]?.p ?? 0) : null;
-        if (k == null) { const l = it.sets[it.sets.length-1] || { r: '', w: '', x: '' }; it.sets.push({ r: l.r, w: l.w ?? '', x: l.x ?? '', ok: false }); }
-        else {
-          // a new normal set goes right before the part's rest-pause set
-          const idx = it.sets.map((s, j) => j).filter(j => (it.sets[j].p ?? 0) === k), nor = idx.filter(j => !it.sets[j].rp);
-          const src = it.sets[nor.length ? nor[nor.length-1] : idx[idx.length-1]] || {}, pt = it.parts[k] || {};
-          const at = nor.length ? nor[nor.length-1] + 1 : idx.length ? idx[0] : it.sets.length;
-          it.sets.splice(at, 0, { r: src.rp ? (pt.reps ?? '') : (src.r ?? ''), w: src.rp ? (pt.weight ?? src.w ?? '') : (src.w ?? ''), x: src.x ?? '', ok: false, p: k, rp: false });
+        const k = ap != null ? +ap : it.parts?.length ? (it.sets[it.sets.length-1]?.p ?? 0) : null, isRP = a.dataset.kind === 'rp';
+        const inG = s => k == null || (s.p ?? 0) === k, pt = (k != null && it.parts?.[k]) || {};
+        const idx = it.sets.map((s, j) => j).filter(j => inG(it.sets[j])), nor = idx.filter(j => !it.sets[j].rp);
+        const lastN = it.sets[nor[nor.length-1]], lastAny = it.sets[idx[idx.length-1]] || {};
+        const extra = k != null ? { p: k } : {};
+        if (isRP) {
+          // rest-pause set: goes at the end of its part, starting from the RP weight (or the last set's)
+          const at = idx.length ? idx[idx.length-1] + 1 : it.sets.length;
+          it.sets.splice(at, 0, { r: '', w: pt.rpW ?? lastN?.w ?? lastAny.w ?? '', x: lastAny.x ?? '', ok: false, rp: true, ...extra });
+        } else {
+          // a normal set goes right after the last normal set (before any rest-pause set)
+          const src = lastN || lastAny, at = nor.length ? nor[nor.length-1] + 1 : idx.length ? idx[0] : it.sets.length;
+          it.sets.splice(at, 0, { r: src.rp ? (pt.reps ?? '') : (src.r ?? ''), w: src.rp ? (pt.weight ?? src.w ?? '') : (src.w ?? ''), x: src.x ?? '', ok: false, rp: false, ...extra });
         }
         draw(); return;
       }
@@ -1745,7 +1752,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
         const m = it.m || exMetric({ name: it.name }), kg = isKg(m.m2), txt = M2[m.m2]?.[1] === 'text';
         const P = it.parts?.length ? it.parts : null;
         return { name: it.name.trim(), block: it.block, tag: it.tag, target: it.target || {}, m1: m.m1, m2: m.m2, ...(P ? { parts: P } : {}),
-          sets: it.sets.map(s => { const o = { r: s.r, w: kg ? num(s.w) : null, ok: s.ok }; if (P) { o.p = s.p ?? 0; if (s.rp) o.rp = true; } if (!kg && m.m2 !== 'none' && s.x !== '' && s.x != null) o.x = txt ? String(s.x).trim() : num(s.x); return o; })
+          sets: it.sets.map(s => { const o = { r: s.r, w: kg ? num(s.w) : null, ok: s.ok }; if (P) o.p = s.p ?? 0; if (s.rp) o.rp = true; if (!kg && m.m2 !== 'none' && s.x !== '' && s.x != null) o.x = txt ? String(s.x).trim() : num(s.x); return o; })
             .filter(s => s.r !== '' || s.w != null || (s.x != null && s.x !== '')) };
       });
       const progId = isFree ? 'libre' : p?.id || existing?.programId;
@@ -1871,6 +1878,14 @@ async function migrateRP() {
 }
 
 /* ---------- program editor ---------- */
+// Exercise "type" in the editor: normal (just sets), ends in a rest-pause set (one part), or sub-blocks (2+ parts).
+function setType(ex, t) {
+  const P = ex.parts?.length ? ex.parts : null, total = P ? P.reduce((a, pt) => a + (Number(pt.sets) || 0), 0) : (ex.sets || 2);
+  const base = P ? P[0] : { sets: ex.sets || 2, reps: ex.reps ?? '', weight: ex.weight ?? null };
+  if (t === 'normal') { if (P) { ex.sets = total; ex.reps = base.reps ?? ''; ex.weight = base.weight ?? null; } delete ex.parts; }
+  else if (t === 'rp') ex.parts = [{ label: '', sets: total, reps: base.reps ?? '', weight: base.weight ?? null, rp: true, rpW: (P && P[0].rpW) ?? base.weight ?? null, rpTo: (P && P[0].rpTo) ?? null }];
+  else if (t === 'sub' && !(P?.length > 1)) { const one = { sets: base.sets || 2, reps: base.reps ?? '', weight: base.weight ?? null, rp: !!base.rp, rpW: base.rpW ?? null, rpTo: base.rpTo ?? null }; ex.parts = [{ label: 'Parte 1', ...one }, { label: 'Parte 2', ...one }]; }
+}
 function openEditor(pid) {
   const src = prog(pid);
   const draft = src ? clone(src) : { id: uid(), name: 'Nueva rutina', subtitle: '', color: 'ink', kind: 'gym', notes: '', order: S.programs.length, days: [{ id: uid(), name: 'Día 1', weekday: 1, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }] };
@@ -1885,13 +1900,19 @@ function openEditor(pid) {
         <label class="f"><span class="label">Día de la semana</span><select data-path="days.${di}.weekday" data-type="weekday"><option value="">Sin día fijo</option>${[1,2,3,4,5,6,0].map(w => `<option value="${w}"${d.weekday === w ? ' selected' : ''}>${DOW[w]}</option>`).join('')}</select></label></div>
         ${(d.blocks||[]).map((b, bi) => `<div class="blked"><div class="row"><input class="grow" data-path="days.${di}.blocks.${bi}.title" value="${esc(b.title||'')}" placeholder="Bloque (ej. Hipertrofia, Core)" aria-label="Nombre del bloque"><select data-path="days.${di}.blocks.${bi}.tag" style="width:auto" aria-label="Color del bloque">${['', 'HIPERTROFIA', 'CORE', 'POTENCIA', 'MOVILIDAD'].map(t => `<option value="${t}"${b.tag === t ? ' selected' : ''}>${t || 'Etiqueta…'}</option>`).join('')}</select><button class="icon ghost" data-ed="rmblock" data-di="${di}" data-bi="${bi}" aria-label="Borrar bloque" style="color:var(--bad)">×</button></div>
           <div class="edrow edhead"><span>Ejercicio</span><span>Series</span><span>Reps</span><span>Kg</span><span></span></div>
-          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`, ids = `data-di="${di}" data-bi="${bi}" data-ei="${ei}"`, P = ex.parts?.length ? ex.parts : null;
-            const head = P ? `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><span class="muted small" style="grid-column:span 3;text-align:center">${P.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series · ${P.length} ${P.length > 1 ? 'partes' : 'parte'}</span><button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button></div>
-            <div class="edsub">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="${P.length > 1 ? 'Sub-bloque (ej. Unilateral)' : 'Sub-bloque (opcional)'}" aria-label="Nombre del sub-bloque"><input data-path="${pp}.sets" data-type="num" inputmode="numeric" value="${pt.sets ?? ''}" aria-label="Series"><input data-path="${pp}.reps" value="${esc(pt.reps ?? '')}" aria-label="Reps"><input data-path="${pp}.weight" data-type="num" inputmode="decimal" value="${pt.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button></div>
-              <div class="rprow"><label class="row small" style="gap:6px"><input type="checkbox" data-path="${pp}.rp" data-type="bool"${pt.rp ? ' checked' : ''} style="width:auto"> Última en RP</label>${pt.rp ? `<input data-path="${pp}.rpW" data-type="num" inputmode="decimal" value="${pt.rpW ?? ''}" placeholder="kg" aria-label="Kg al empezar el rest-pause"> → <input data-path="${pp}.rpTo" data-type="num" inputmode="decimal" value="${pt.rpTo ?? ''}" placeholder="kg" aria-label="Kg al bajar"> kg` : ''}</div>`; }).join('')}</div>`
-            : `<div class="edrow"><input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio"><input data-path="${pth}.sets" data-type="num" inputmode="numeric" value="${ex.sets ?? ''}" aria-label="Series"><input data-path="${pth}.reps" value="${esc(ex.reps ?? '')}" aria-label="Reps"><input data-path="${pth}.weight" data-type="num" inputmode="decimal" value="${ex.weight ?? ''}" aria-label="Kg"><button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button></div>`;
+          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`, ids = `data-di="${di}" data-bi="${bi}" data-ei="${ei}"`, P = ex.parts?.length ? ex.parts : null, T = !P ? 'normal' : P.length > 1 ? 'sub' : 'rp';
+            const rmx = `<button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button>`;
+            const cols = (b0, rm) => `<input data-path="${b0}.sets" data-type="num" inputmode="numeric" value="${(b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).sets ?? ''}" aria-label="Series"><input data-path="${b0}.reps" value="${esc((b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).reps ?? '')}" aria-label="Reps"><input data-path="${b0}.weight" data-type="num" inputmode="decimal" value="${(b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).weight ?? ''}" aria-label="Kg">${rm}`;
+            const rpIn = (pp, pt) => `<input data-path="${pp}.rpW" data-type="num" inputmode="decimal" value="${pt.rpW ?? ''}" placeholder="kg" aria-label="Kg al empezar el rest-pause"> → <input data-path="${pp}.rpTo" data-type="num" inputmode="decimal" value="${pt.rpTo ?? ''}" placeholder="kg" aria-label="Kg al bajar"> kg`;
+            const nameIn = `<input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio">`;
+            const head = T === 'normal' ? `<div class="edrow">${nameIn}${cols(pth, rmx)}</div>`
+              : T === 'rp' ? `<div class="edrow">${nameIn}${cols(pth + '.parts.0', rmx)}</div><div class="rprow" style="padding-left:4px">La última serie es RP:${rpIn(pth + '.parts.0', P[0])}</div>`
+              : `<div class="edrow">${nameIn}<span class="muted small" style="grid-column:span 3;text-align:center">${P.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series · ${P.length} partes</span>${rmx}</div>
+            <div class="edsub">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="Sub-bloque (ej. Unilateral)" aria-label="Nombre del sub-bloque">${cols(pp, `<button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button>`)}</div>
+              <div class="rprow"><label class="row small" style="gap:6px"><input type="checkbox" data-path="${pp}.rp" data-type="bool"${pt.rp ? ' checked' : ''} style="width:auto"> Última en RP</label>${pt.rp ? rpIn(pp, pt) : ''}</div>`; }).join('')}
+              <button class="sm ghost" data-ed="addpart" ${ids} style="align-self:flex-start;font-size:12.5px;padding:5px 8px">+ Sub-bloque</button></div>`;
             return `${head}
-            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px" aria-label="Nota"><button class="sm ghost" data-ed="addpart" ${ids} style="white-space:nowrap;font-size:12.5px;padding:5px 8px">+ Sub-bloque</button>
+            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px;min-width:0" aria-label="Nota"><select data-edtype ${ids} style="width:auto;font-size:13px;padding:5px 6px" aria-label="Tipo de series">${[['normal', 'Normal'], ['rp', 'Termina en RP'], ['sub', 'Sub-bloques']].map(([v, l]) => `<option value="${v}"${T === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
             <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div>`; }).join('')}
           <button class="sm ghost" data-ed="addex" data-di="${di}" data-bi="${bi}" style="align-self:flex-start">+ Ejercicio</button></div>`).join('')}
         <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`).join('')}
@@ -1907,17 +1928,20 @@ function openEditor(pid) {
       if (el.dataset.type === 'bool' && ev.type === 'change') { if (v && ks[ks.length-1] === 'rp' && !hasV(o.rpW)) o.rpW = o.weight ?? null; const y = sh.scrollTop; draw(sh); sh.scrollTop = y; }
     };
     sh.addEventListener('input', onInput); sh.addEventListener('change', onInput);
+    sh.addEventListener('change', ev => {
+      const el = ev.target.closest('[data-edtype]'); if (!el) return;
+      setType(draft.days[el.dataset.di].blocks[el.dataset.bi].exercises[el.dataset.ei], el.value);
+      const y = sh.scrollTop; draw(sh); sh.scrollTop = y;
+    });
     sh.addEventListener('click', ev => {
       const b = ev.target.closest('[data-ed]'); if (!b) return;
       const { di, bi, ei } = b.dataset; const D = draft.days;
       switch (b.dataset.ed) {
         case 'addex': D[di].blocks[bi].exercises.push({ id: uid(), name: '', sets: 2, reps: '', weight: null, note: '' }); break;
         case 'rmex': D[di].blocks[bi].exercises.splice(ei, 1); break;
-        case 'addpart': { const ex = D[di].blocks[bi].exercises[ei];
-          if (!ex.parts?.length) ex.parts = [{ label: '', sets: ex.sets || 2, reps: ex.reps ?? '', weight: ex.weight ?? null, rp: false, rpW: null, rpTo: null }];
-          else { const l = ex.parts[ex.parts.length-1]; if (ex.parts.length === 1 && !l.label) l.label = 'Parte 1'; ex.parts.push({ label: '', sets: l.sets || 2, reps: l.reps ?? '', weight: l.weight ?? null, rp: !!l.rp, rpW: l.rpW ?? null, rpTo: l.rpTo ?? null }); }
-          break; }
-        case 'rmpart': { const ex = D[di].blocks[bi].exercises[ei]; ex.parts.splice(+b.dataset.k, 1); if (!ex.parts.length) delete ex.parts; break; }
+        case 'addpart': { const ex = D[di].blocks[bi].exercises[ei], l = ex.parts[ex.parts.length-1];
+          ex.parts.push({ label: 'Parte ' + (ex.parts.length + 1), sets: l.sets || 2, reps: l.reps ?? '', weight: l.weight ?? null, rp: !!l.rp, rpW: l.rpW ?? null, rpTo: l.rpTo ?? null }); break; }
+        case 'rmpart': { const ex = D[di].blocks[bi].exercises[ei]; ex.parts.splice(+b.dataset.k, 1); if (ex.parts.length === 1 && !ex.parts[0].rp) setType(ex, 'normal'); else if (!ex.parts.length) delete ex.parts; break; }
         case 'addblock': D[di].blocks.push({ id: uid(), title: '', tag: '', exercises: [] }); break;
         case 'rmblock': D[di].blocks.splice(bi, 1); break;
         case 'addday': D.push({ id: uid(), name: 'Día ' + (D.length + 1), weekday: null, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }); break;
@@ -1929,7 +1953,7 @@ function openEditor(pid) {
     $('#ed-save', sh).addEventListener('click', async () => {
       draft.days.forEach(d => d.blocks.forEach(b => b.exercises = b.exercises.filter(e => (e.name||'').trim())));
       // keep sets/reps/weight on the exercise as a summary of its sub-blocks
-      draft.days.forEach(d => d.blocks.forEach(b => b.exercises.forEach(e => { if (!e.parts?.length) { delete e.parts; return; } e.sets = e.parts.reduce((t, pt) => t + (Number(pt.sets) || 0), 0); e.reps = e.parts[0].reps ?? ''; e.weight = e.parts[0].weight ?? null; })));
+      draft.days.forEach(d => d.blocks.forEach(b => b.exercises.forEach(e => { if (e.parts?.length === 1 && !e.parts[0].rp) setType(e, 'normal'); if (!e.parts?.length) { delete e.parts; return; } e.sets = e.parts.reduce((t, pt) => t + (Number(pt.sets) || 0), 0); e.reps = e.parts[0].reps ?? ''; e.weight = e.parts[0].weight ?? null; })));
       if (await write(db => db.doc('programs/' + draft.id).set(body(draft)), 'Rutina guardada')) closeSheet();
     });
     const del = $('#ed-del', sh);
