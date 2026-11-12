@@ -387,6 +387,34 @@ details.more[open] summary::after{content:"−"}
 .npyr{display:flex;flex-direction:column;align-items:center;gap:4px}
 .npyr div{background:var(--surface-2);border-radius:9px;min-height:30px;display:grid;place-items:center;font-size:12px;color:var(--muted);text-align:center;padding:4px}
 .npyr div:last-child{background:var(--accent);color:var(--on-accent)}
+/* salud */
+.hchips button{flex:none;min-height:36px;font-size:13px;padding:6px 14px;border-color:var(--line);color:var(--muted)}
+.agrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.adic{border:1px solid var(--line);border-radius:14px;background:var(--surface);display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.adic .amain{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:14px;flex:1}
+.adic .amain:focus-visible{outline:1.5px solid var(--fg);outline-offset:-4px}
+.adic .v{font-family:var(--font-display);font-size:34px;font-weight:200;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.adic .v small{font-size:13px;color:var(--muted);font-weight:400;letter-spacing:0}
+.adic .abar{height:2px;background:var(--surface-2);border-radius:9px;overflow:hidden}
+.adic .abar i{display:block;height:100%;background:var(--fg)}
+.adic .ameta{font-size:10.5px;color:var(--muted)}
+.adic.off{background:transparent;border-style:dashed}
+.afoot{display:flex;border-top:1px solid var(--line)}
+.afoot button{flex:1;border:0;border-radius:0;min-height:40px;font-size:12.5px;color:var(--muted);padding:4px}
+.afoot button[data-act="relapse"][data-armed="1"]{color:var(--bad)}
+.crow{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}
+.crow:last-child{border-bottom:0}
+.crow .ck{min-height:30px;min-width:30px;width:30px;height:30px;padding:0;margin:2px 0 0 2px;border-radius:50%;border-color:var(--edge);display:grid;place-items:center}
+.crow .ck svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.crow .ck[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:var(--bg)}
+.crow .ck[aria-pressed="true"] svg{opacity:1}
+.crow .cmain{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:4px}
+.crow .cmain b{font-weight:500}
+.ptog{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-radius:14px;border-color:var(--line);min-height:64px;padding:12px 14px;font-weight:400}
+.ptog[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ptog[aria-pressed="true"] .label{color:var(--on-accent);opacity:.7}
+.crow.done .cmain{opacity:.5}
+.crow.done .cmain b{text-decoration:line-through}
 @media (prefers-reduced-motion:no-preference){#sheet{animation:up .22s cubic-bezier(.2,.8,.2,1)}@keyframes up{from{transform:translateY(40px);opacity:.5}}}
 @media (max-width:420px){.edrow{grid-template-columns:minmax(0,1fr) 46px 56px 60px 30px}h1{font-size:28px}.hero .big{font-size:46px}.ring{width:88px;height:88px}.nutgrid b{font-size:16px}}
 </style>
@@ -402,10 +430,10 @@ details.more[open] summary::after{content:"−"}
 <nav class="tabs" aria-label="Secciones"><div class="in">
   <button data-tab="reg"><svg viewBox="0 0 24 24"><path d="M6.5 7v10M17.5 7v10M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg>Registrar</button>
   <button data-tab="rut"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"/></svg>Rutinas</button>
-  <button data-tab="prog"><svg viewBox="0 0 24 24"><path d="M3.5 17l5.5-5.5 4 4 7.5-8M15 7.5h5.5V13"/></svg>Progreso</button>
   <button data-tab="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendario</button>
   <button data-tab="res"><svg viewBox="0 0 24 24"><path d="M5 20V13M10 20V6M15 20v-9M20 20v-5"/></svg>Resumen</button>
   <button data-tab="perf"><svg viewBox="0 0 24 24"><path d="M12 3.5l9 16.5H3z"/><path d="M7.5 12h9M5.3 16.2h13.4"/></svg>Performance</button>
+  <button data-tab="salud"><svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/><path d="M7.5 12.5h2.5l1.2-2.2 1.8 4 1.2-1.8h2.3"/></svg>Salud</button>
 </div></nav>
 
 <div id="scrim" hidden></div>
@@ -438,7 +466,7 @@ const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/
 const clone = o => JSON.parse(JSON.stringify(o));
 const today = () => ymd(new Date());
 const COLORS = { mustard: 'Mostaza', blue: 'Azul', green: 'Verde', red: 'Rojo', ink: 'Negro' };
-const TITLES = { reg: 'Registrar', rut: 'Rutinas', prog: 'Progreso', cal: 'Calendario', res: 'Resumen', perf: 'Performance' };
+const TITLES = { reg: 'Registrar', rut: 'Rutinas', cal: 'Calendario', res: 'Resumen', perf: 'Performance', salud: 'Salud' };
 const TIERS = { mobility: 'Movilidad', stability: 'Estabilidad', movement: 'Movimiento', strength: 'Fuerza', power: 'Potencia', endurance: 'Resistencia', skill: 'Habilidad' };
 
 const S = {
@@ -447,10 +475,14 @@ const S = {
   tab: 'reg', calMonth: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); })(),
   progEx: null, progSeg: 'fuerza', bodyMetric: 'weight',
   checkins: [], ciPose: 'front', ciA: null, ciB: null, ciM: 'armR',
-  food: {}, myFoods: [], regSeg: 'gym', nutDate: null, nutMicros: false
+  food: {}, myFoods: [], regSeg: 'gym', nutDate: null, nutMicros: false,
+  calSeg: 'cal', health: {}, saludSeg: 'adic'
 };
 try { if (localStorage.getItem('tg-regseg') === 'nut') S.regSeg = 'nut'; } catch (e) {}
-try { const t = localStorage.getItem('tg-tab'); if (TITLES[t]) S.tab = t; } catch (e) {}
+try { if (localStorage.getItem('tg-calseg') === 'prog') S.calSeg = 'prog'; } catch (e) {}
+try { const h = localStorage.getItem('tg-hseg'); if (h) S.saludSeg = h; } catch (e) {}
+// Progreso now lives inside Calendario; an old saved 'prog' tab opens Calendario on its Progreso segment.
+try { const t = localStorage.getItem('tg-tab'); if (t === 'prog') { S.tab = 'cal'; S.calSeg = 'prog'; } else if (TITLES[t]) S.tab = t; } catch (e) {}
 try { const th = localStorage.getItem('tg-theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
 
 /* ---------- data helpers ---------- */
@@ -548,13 +580,13 @@ function scheduleRender() {
 }
 function render() {
   const d = new Date();
-  $('#ttl').textContent = S.tab === 'reg' && S.regSeg === 'nut' ? 'Nutrición' : TITLES[S.tab];
+  $('#ttl').textContent = S.tab === 'reg' && S.regSeg === 'nut' ? 'Nutrición' : S.tab === 'cal' && S.calSeg === 'prog' ? 'Progreso' : TITLES[S.tab];
   $('#hdrsub').textContent = S.noDb ? 'Sin guardado' : S.slow && !S.ready ? 'Sin conexión: los datos pueden no estar al día' : `${DOW[d.getDay()]} ${d.getDate()} de ${MON[d.getMonth()]}`;
   $$('nav.tabs button').forEach(b => b.setAttribute('aria-current', b.dataset.tab === S.tab ? 'page' : 'false'));
   const m = $('#main');
   if (S.noDb) { m.innerHTML = `<div class="card"><h2>Abre la app con tu cuenta</h2><p class="muted" style="margin:0">Tus entrenos, medidas y pasos se guardan en tu cuenta de Claude. Abre esta página desde claude.ai (web o app del iPhone) con la sesión iniciada.</p></div>`; return; }
   if (!S.ready && !S.programs.length && !S.workouts.length) { m.innerHTML = `<div class="empty">${S.slow ? 'No se pueden cargar tus datos todavía. Revisa la conexión; se cargarán solos en cuanto vuelva.' : 'Cargando tus datos…'}</div>`; return; }
-  m.innerHTML = ({ reg: vReg, rut: vRut, prog: vProg, cal: vCal, res: vRes, perf: vPerf }[S.tab] || vReg)();
+  m.innerHTML = ({ reg: vReg, rut: vRut, cal: vCalTab, res: vRes, perf: vPerf, salud: vSalud }[S.tab] || vReg)();
 }
 
 /* ---------- Registrar ---------- */
@@ -871,6 +903,10 @@ function lineChart(pts, { label = '', unit = '', color = 'var(--accent)', extra 
 }
 
 /* ---------- Calendario ---------- */
+function vCalTab() {
+  const seg = `<div class="seg" role="group" aria-label="Vista"><button data-act="cseg" data-v="cal" aria-pressed="${S.calSeg !== 'prog'}">Calendario</button><button data-act="cseg" data-v="prog" aria-pressed="${S.calSeg === 'prog'}">Progreso</button></div>`;
+  return seg + (S.calSeg === 'prog' ? vProg() : vCal());
+}
 function vCal() {
   const m = S.calMonth, y = m.getFullYear(), mo = m.getMonth();
   const start = mondayOf(new Date(y, mo, 1));
@@ -892,6 +928,184 @@ function vCal() {
     <p class="muted small" style="margin:0">Toca un día para registrar entreno, pasos o medidas, también de días pasados.</p></section>
   <div class="sec"><span class="t">Sesiones del mes</span><span class="m">${monthWs.filter(w => !isJoint(w)).length} entrenos · ${monthWs.filter(isJoint).length} articulaciones</span></div>
   ${monthWs.length ? `<div class="card soft" style="padding-block:4px">${monthWs.map(w => `<button class="sess" data-act="log" data-w="${esc(w.id)}" data-date="${w.date}"><span><i class="dot c-${esc(pcolor(w.programId))}"></i> <b>${esc(w.dayName)}</b></span><span class="meta">${fmtD(w.date)}</span></button>`).join('')}</div>` : '<div class="empty">Sin sesiones este mes.</div>'}`;
+}
+
+/* ---------- Salud ---------- */
+// Data: collection `health` → doc `adic` { items:[{id,name,since,best,log:[{from,to,days}]}] }
+//                              doc `citas` { note, items:[{id,kind:'cita'|'examen',name,why,date,done,doneAt}] }
+// Defaults below are used until the first save (seeded from the user's notes).
+const ADIC_DEF = ['Vape', 'Marihuana', 'Destilado', 'Porno', 'Ultraprocesados', 'Masturbación', 'Alcohol', 'Sexo'];
+const CITAS_DEF = {
+  note: 'Averiguar con las operaciones de nariz si me pueden operar las tetillas y lipotransferencia de pantorrillas.',
+  items: [
+    ['Ortopedista', 'Lesiones constantes (articulaciones: codos, tobillos, rodillas).', true],
+    ['Especialista pies y tobillos', 'Mostrarle la plantilla que me queda incómoda.', true],
+    ['Fisioterapeuta', 'Terapia de tobillos, codo y cadera; mejorar movilidad.'],
+    ['Alergóloga', 'Inmunoterapia con la Dra. Elsie.'],
+    ['Cardiólogo', 'Sacar cita: dolor en el corazón, me canso y me acelero muy rápido, sudo mucho.'],
+    ['Neumólogo', 'Sacar cita: me ahogo mucho cuando hago ejercicio, hablo o estoy acostado; sudo mucho.'],
+    ['Oftalmólogo', 'Resequedad de ojos e incomodidad visual que me hace estar tocándome los ojos.'],
+    ['Odontólogo', 'Quitar resina de muela que causa sensibilidad y placa miorrelajante.'],
+    ['Dermatóloga', 'Sudoración, pecas, pelo, manos y pies callosos.'],
+    ['Psicóloga / psiquiatra', 'Temas que me consumen: ansiedad, depresión, déficit de atención (TDAH), soledad, estrés; vivo en una nostalgia por todo lo que viví de pequeño y lo que pudo haber sido; miedo al futuro; presión por querer “triunfar”.']
+  ]
+};
+const MILESTONES = [1, 3, 7, 14, 21, 30, 60, 90, 180, 365, 730, 1095];
+const daysSince = s => Math.max(0, Math.round((pd(today()) - pd(s)) / 864e5));
+const adicDoc = () => clone(S.health.adic || { items: ADIC_DEF.map(n => ({ id: norm(n).replace(/[^a-z]/g, ''), name: n, since: null, best: 0, log: [] })) });
+const citasDoc = () => clone(S.health.citas || { note: CITAS_DEF.note, items: CITAS_DEF.items.map(([name, why, done], i) => ({ id: 'c' + i, kind: 'cita', name, why, date: null, done: !!done, doneAt: null })) });
+function saveHealth(key, doc, msg) {
+  S.health = { ...S.health, [key]: doc }; render();
+  return write(db => db.doc('health/' + key).set(doc), msg);
+}
+const HSEGS = [['adic', 'Adicciones'], ['citas', 'Citas'], ['supl', 'Suplementos'], ['resp', 'Respiración'], ['post', 'Postura']];
+function vSalud() {
+  const seg = `<div class="chips hchips" role="group" aria-label="Sección de salud">${HSEGS.map(([k, n]) => `<button data-act="hseg" data-v="${k}" aria-pressed="${S.saludSeg === k}">${n}</button>`).join('')}</div>`;
+  const v = { adic: vAdic, citas: vCitas, resp: vResp, post: vPost }[S.saludSeg];
+  if (v) return seg + v();
+  const n = HSEGS.find(x => x[0] === S.saludSeg)?.[1] || '';
+  return seg + `<div class="empty">${esc(n)}: esta parte se llena con tu nota. En cuanto la mandes, queda aquí.</div>`;
+}
+function vAdic() {
+  const items = adicDoc().items, on = items.filter(i => i.since);
+  const top = on.length ? on.reduce((a, b) => daysSince(a.since) >= daysSince(b.since) ? a : b) : null;
+  const cards = items.map(it => {
+    if (!it.since) return `<div class="adic off"><button class="amain" data-act="adic" data-id="${esc(it.id)}"><span class="label">${esc(it.name)}</span><span class="muted small">Sin contador</span></button>
+      <div class="afoot"><button data-act="adicgo" data-id="${esc(it.id)}">Empezar hoy</button></div></div>`;
+    const d = daysSince(it.since), nx = MILESTONES.find(m => m > d) || d + 365, pv = [...MILESTONES].reverse().find(m => m <= d) || 0;
+    const pct = Math.round(((d - pv) / (nx - pv)) * 100), best = Math.max(it.best || 0, d);
+    return `<div class="adic"><button class="amain" data-act="adic" data-id="${esc(it.id)}"><span class="label">${esc(it.name)}</span>
+      <span class="v">${d}<small> ${d === 1 ? 'día' : 'días'}</small></span>
+      <span class="abar" aria-hidden="true"><i style="width:${pct}%"></i></span>
+      <span class="mono ameta">Meta ${nx} d · mejor ${best} d</span></button>
+      <div class="afoot"><button data-act="relapse" data-id="${esc(it.id)}">Recaí</button></div></div>`;
+  }).join('');
+  return `<section class="card soft hero"><div><div class="label">Racha más larga ahora</div>
+      <div class="big">${top ? daysSince(top.since) : 0}<small> días</small></div>
+      <div class="muted small">${top ? `Sin ${esc(top.name.toLowerCase())} desde el ${fmtShort(top.since)}` : 'Toca “Empezar hoy” o pon la fecha desde la que llevas limpio.'}</div></div>
+      <div class="mono muted" style="text-align:right;font-size:12px">${on.length}/${items.length}<br>activos</div></section>
+    <div class="agrid">${cards}</div>
+    <p class="muted small" style="margin:0">Toca una tarjeta para poner desde qué día llevas sin ello o ver tus rachas anteriores. “Recaí” guarda la racha y vuelve a empezar hoy.</p>`;
+}
+function openAdic(id) {
+  const doc = adicDoc(), it = doc.items.find(x => x.id === id); if (!it) return;
+  const log = [...(it.log || [])].reverse();
+  const inner = `<section class="card soft">
+      <label class="f"><span class="label">Llevo sin ${esc(it.name.toLowerCase())} desde</span><input id="ad-since" type="date" max="${today()}" value="${it.since || ''}"></label>
+      <div class="kv"><div><span>Mejor racha</span><span>${Math.max(it.best || 0, it.since ? daysSince(it.since) : 0)} días</span></div><div><span>Recaídas registradas</span><span>${log.length}</span></div></div></section>
+    ${log.length ? `<div class="sec"><span class="t">Rachas anteriores</span></div><div class="card soft" style="padding-block:4px">${log.map(l => `<div class="sess"><span>${l.days} ${l.days === 1 ? 'día' : 'días'}</span><span class="meta">${fmtShort(l.from)} → ${fmtShort(l.to)}</span></div>`).join('')}</div>` : ''}
+    <div class="row"><button class="primary grow" id="ad-save">Guardar</button>${it.since ? '<button class="danger" id="ad-off">Quitar contador</button>' : ''}</div>`;
+  openSheet(it.name, inner, sh => {
+    $('#ad-save', sh).addEventListener('click', async () => {
+      const v = $('#ad-since', sh).value; it.since = v && v <= today() ? v : it.since;
+      if (await saveHealth('adic', doc, 'Guardado')) closeSheet();
+    });
+    $('#ad-off', sh)?.addEventListener('click', async ev => {
+      const b = ev.currentTarget; if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar'; return; }
+      it.since = null; if (await saveHealth('adic', doc, 'Contador quitado')) closeSheet();
+    });
+  });
+}
+function citaRow(c) {
+  return `<div class="crow${c.done ? ' done' : ''}"><button class="ck" data-act="citaok" data-id="${esc(c.id)}" aria-pressed="${!!c.done}" aria-label="${c.done ? 'Marcar pendiente' : 'Marcar hecha'}: ${esc(c.name)}"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></button>
+    <button class="cmain" data-act="cita" data-id="${esc(c.id)}"><span class="row" style="gap:6px"><b>${esc(c.name)}</b>${c.kind === 'examen' ? '<span class="chip">Examen</span>' : ''}${c.date && !c.done ? `<span class="chip acc">${fmtShort(c.date)}</span>` : ''}</span>
+    ${c.why ? `<span class="muted small">${esc(c.why)}</span>` : ''}</button></div>`;
+}
+function vCitas() {
+  const doc = citasDoc(), pend = doc.items.filter(c => !c.done), done = doc.items.filter(c => c.done);
+  pend.sort((a, b) => (a.date ? 0 : 1) - (b.date ? 0 : 1) || String(a.date || '').localeCompare(String(b.date || '')));
+  return `${doc.note ? `<button class="rcard compact" data-act="citanote"><span class="label">Por averiguar</span><span class="ex" style="color:var(--fg)">${esc(doc.note)}</span></button>` : ''}
+    <div class="sec"><span class="t">Pendientes</span><span class="m">${pend.length}</span></div>
+    ${pend.length ? `<div class="card soft" style="padding-block:4px">${pend.map(citaRow).join('')}</div>` : '<div class="empty">Nada pendiente.</div>'}
+    <button data-act="cita" data-id="">+ Añadir cita o examen</button>
+    ${done.length ? `<div class="sec"><span class="t">Hechas</span><span class="m">${done.length}</span></div><div class="card soft" style="padding-block:4px">${done.map(citaRow).join('')}</div>` : ''}
+    ${doc.note ? '' : '<button class="ghost sm" data-act="citanote">+ Nota “por averiguar”</button>'}`;
+}
+function openCita(id) {
+  const doc = citasDoc(), c = doc.items.find(x => x.id === id) || { id: uid(), kind: 'cita', name: '', why: '', date: null, done: false }, isNew = !doc.items.includes(c);
+  const inner = `<section class="card soft">
+      <div class="seg" role="group" aria-label="Tipo"><button type="button" data-k="cita" aria-pressed="${c.kind !== 'examen'}">Cita</button><button type="button" data-k="examen" aria-pressed="${c.kind === 'examen'}">Examen</button></div>
+      <label class="f"><span class="label">Especialista o examen</span><input id="ct-name" value="${esc(c.name)}" placeholder="Ej. Cardiólogo, hemograma…"></label>
+      <label class="f"><span class="label">Motivo</span><textarea id="ct-why" placeholder="Por qué vas, qué quieres preguntar">${esc(c.why || '')}</textarea></label>
+      <label class="f"><span class="label">Fecha de la cita (si ya la tienes)</span><input id="ct-date" type="date" value="${c.date || ''}"></label></section>
+    <div class="row"><button class="primary grow" id="ct-save">Guardar</button>${isNew ? '' : '<button class="danger" id="ct-del">Borrar</button>'}</div>`;
+  openSheet(isNew ? 'Nueva cita o examen' : c.name, inner, sh => {
+    let kind = c.kind || 'cita';
+    $$('.seg button', sh).forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; $$('.seg button', sh).forEach(x => x.setAttribute('aria-pressed', x === b)); }));
+    $('#ct-save', sh).addEventListener('click', async () => {
+      const name = $('#ct-name', sh).value.trim(); if (!name) { toast('Pon el especialista o el examen.'); return; }
+      Object.assign(c, { kind, name, why: $('#ct-why', sh).value.trim(), date: $('#ct-date', sh).value || null });
+      if (isNew) doc.items.push(c);
+      if (await saveHealth('citas', doc, 'Guardado')) closeSheet();
+    });
+    $('#ct-del', sh)?.addEventListener('click', async ev => {
+      const b = ev.currentTarget; if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar borrado'; return; }
+      doc.items = doc.items.filter(x => x.id !== c.id); if (await saveHealth('citas', doc, 'Borrado')) closeSheet();
+    });
+  });
+}
+// Daily breathing routine: doc `health/rutina` { days: { 'yyyy-mm-dd': ['med','mind',...] } }. `wk` = target per week.
+const RUT = [
+  { id: 'med', n: 'Meditación', d: '5 min', wk: 7 },
+  { id: 'mind', n: 'Mindfulness', d: 'Tratar durante todo el día', wk: 7 },
+  { id: 'wim', n: 'Respiración Wim Hof', d: '3 rondas', wk: 7 },
+  { id: 'hipo', n: 'Hipopresivos', d: 'En ayunas · 4 posiciones 3×15″', wk: 3 },
+  { id: 'kegel', n: 'Kegel', d: '10″×8 acostado · 5″×5 puente', wk: 3 }
+];
+const GUIDES = [
+  ['Hipopresivos', 'En ayunas · 3–4 veces por semana', ['De pie: 3 × 15″', 'Sentado: 3 × 15″', 'Cuadrupedia: 3 × 15″', 'Acostado, piernas flexionadas: 3 × 15″']],
+  ['Respiración Wim Hof', 'Repetir 3 veces', ['Inhalaciones completas y exhalaciones relajadas por 40 segundos.', 'Inhalaciones y exhalaciones un poco más rápido por 40 segundos.', 'Soltar el aire por completo tras la última exhalación y aguantar lo más que puedas.', 'Al sentir la necesidad de respirar, inhalar profundo y aguantar lo más que puedas.', 'Repetir 3 veces, aumentando el tiempo de retención y midiéndolo.']],
+  ['Técnica 4-7-8 (reparación)', 'Para calmarte o dormir', ['Inhalar 4 segundos.', 'Aguantar 7 segundos.', 'Exhalar 8 segundos.']],
+  ['Respiración Buteyko', 'Repetir 3 veces', ['Exhalación natural y retener lo más que puedas (pausa controlada, PC).', 'Al sentir la necesidad de respirar, inhalar suave hasta que la respiración vuelva a la normalidad.', 'Repetir 3 veces, aumentando poco a poco el tiempo de la PC.']],
+  ['Coherencia 5-5', 'Dr. Carlos Jaramillo', ['Inhalo 5, sostengo 5, exhalo 5, sostengo 5… y repito.']],
+  ['Respiración durante el ejercicio', '', ['Por la nariz.']],
+  ['Meditación y mindfulness', '5 minutos diarios', ['Meditación: entrenar mente y conciencia enfocando la atención en algo (respiración, mantra, sonido…). Si la mente divaga, solo notarlo y volver al foco.', 'Mindfulness: conciencia del momento, sin críticas (atención plena).', 'No es dejar la mente en blanco: es observar lo que hay y aceptar las emociones sin suprimirlas.', 'Qué es: atención al presente, sin juicio, aceptación de pensamientos pasajeros, conciencia de uno mismo y del entorno.', 'Cómo se practica: respiración consciente (sentir el aire entrar y salir), meditación formal (sentado, atención a respiración, sonidos o sensaciones) y ejercicios informales (comer, caminar o trabajar con todos los sentidos).']],
+  ['Kegel', '3 veces por semana · empezar con 50–80 repeticiones', ['Encontrar el músculo: es el que usas para cortar la orina (solo para identificarlo, no como ejercicio habitual).', 'Principiante: apretar y soltar controladamente × 100, en diferentes posiciones.', 'Semi-avanzado: apretar 5″ respirando normal, relajar del todo 5″. 10 repeticiones, 2 veces al día. Ir subiendo los tiempos.', 'Puente Kegel: inhala en posición de puente; exhala mientras aprietas el suelo pélvico y subes la cadera en línea recta; sostén 5″ respirando normal; inhala y baja despacio relajando. 10 repeticiones.', 'Variante (urólogo): contracciones rápidas empezando por 15 y subiendo hasta 80; después, contraer 3″ y relajar 3″ hasta llegar a 50. Uno de los dos, 2 veces al día.']]
+];
+const rutDays = () => S.health.rutina?.days || {};
+function vResp() {
+  const t = today(), days = rutDays(), done = new Set(days[t] || []), wk = weekDates(new Date());
+  const rows = RUT.map(r => {
+    const n = wk.filter(d => (days[d] || []).includes(r.id)).length;
+    return `<div class="crow"><button class="ck" data-act="rutok" data-id="${r.id}" aria-pressed="${done.has(r.id)}" aria-label="${done.has(r.id) ? 'Desmarcar' : 'Marcar hecho'}: ${esc(r.n)}"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></button>
+      <button class="cmain" data-act="rutok" data-id="${r.id}"><span class="row between" style="gap:6px"><b>${esc(r.n)}</b><span class="mono muted" style="font-size:11px">${n}/${r.wk} sem</span></span><span class="muted small">${esc(r.d)}</span></button></div>`;
+  }).join('');
+  let streak = 0; for (let d = new Date(); ; d.setDate(d.getDate() - 1)) { const k = ymd(d); if ((days[k] || []).length) streak++; else if (k !== t) break; if (streak > 3650) break; }
+  const week = wk.map(d => { const c = (days[d] || []).length; return `<div class="b${d === t ? ' tdy' : ''}"><i class="${c ? 'ok' : 'none'}" style="height:${c ? Math.max(8, c / RUT.length * 48) : 6}px"></i><span>${DL[pd(d).getDay()]}</span></div>`; }).join('');
+  return `<section class="card soft"><div class="row between"><span class="label">Hoy · ${done.size}/${RUT.length}</span><span class="mono muted" style="font-size:12px">Racha ${streak} ${streak === 1 ? 'día' : 'días'}</span></div>
+      <div style="padding-block:2px">${rows}</div></section>
+    <section class="card soft"><span class="label">Esta semana</span><div class="wbars" style="height:70px">${week}</div></section>
+    <div class="sec"><span class="t">Cómo se hace</span></div>
+    ${GUIDES.map(([h, s, steps]) => `<details class="card soft more"><summary><span><h3>${esc(h)}</h3>${s ? `<span class="muted small">${esc(s)}</span>` : ''}</span></summary><ol class="refs">${steps.map(x => `<li>${esc(x)}</li>`).join('')}</ol></details>`).join('')}`;
+}
+// Neck / posture routine, twice a day: doc `health/postura` { days: { 'yyyy-mm-dd': ['am','pm'] } }
+const POST_EX = [
+  ['Beso al techo (chin lift)', '10–15″ · 10–15 rep.', 'Cabeza atrás mirando al techo, frunce los labios como para dar un beso y mantén la tensión. Activa el platisma.'],
+  ['Platisma “Shhh”', '3″ · 10 rep.', 'Manos sobre la clavícula para fijar el pecho, barbilla un poco arriba y haz “shhh” contrayendo el cuello.'],
+  ['Lengua a la nariz', '15 rep.', 'Cabeza recta, intenta tocar la punta de la nariz con la lengua lo más arriba posible; mantén y relaja.'],
+  ['Mandíbula hacia fuera', '10–12 rep.', 'Boca abierta, lleva la mandíbula inferior afuera y adentro sintiendo la tensión en el cuello.'],
+  ['Lengua contra el paladar', '5″ · 10–15 rep.', 'Presiona la lengua fuerte contra el paladar con la cabeza un poco atrás. Se usa en terapia miofuncional.'],
+  ['León (yoga facial)', '5–8″ · 10 rep.', 'Saca la lengua al máximo, abre los ojos y tensa el cuello.'],
+  ['Apertura de boca con resistencia', '5″ · 8–12 rep.', 'Puño bajo el mentón e intenta abrir la boca contra la resistencia. Fortalece los suprahioideos.'],
+  ['Masaje ascendente', '1–2 min', 'Con aceite o crema, desliza el talón de la mano desde la base del cuello hacia la mandíbula.'],
+  ['Inflar las mejillas', '45″', 'Infla la boca de aire y ve soltándolo lentamente.']
+];
+function vPost() {
+  const t = today(), days = S.health.postura?.days || {}, done = new Set(days[t] || []), wk = weekDates(new Date());
+  const btn = (k, n) => `<button class="ptog" data-act="postok" data-id="${k}" aria-pressed="${done.has(k)}"><span class="label">${n}</span><span>${done.has(k) ? 'Hecho ✓' : 'Marcar'}</span></button>`;
+  let streak = 0; for (let d = new Date(); ; d.setDate(d.getDate() - 1)) { const k = ymd(d); if ((days[k] || []).length) streak++; else if (k !== t) break; if (streak > 3650) break; }
+  const week = wk.map(d => { const c = (days[d] || []).length; return `<div class="b${d === t ? ' tdy' : ''}"><i class="${c ? 'ok' : 'none'}" style="height:${c ? c * 19 : 6}px"></i><span>${DL[pd(d).getDay()]}</span></div>`; }).join('');
+  return `<section class="card soft"><div class="row between"><span class="label">Hoy · 2 veces al día</span><span class="mono muted" style="font-size:12px">Racha ${streak} ${streak === 1 ? 'día' : 'días'}</span></div>
+      <div class="res">${btn('am', 'Mañana')}${btn('pm', 'Noche')}</div><div class="wbars" style="height:60px">${week}</div></section>
+    <div class="sec"><span class="t">Ejercicios · cuello y mandíbula</span><span class="m">${POST_EX.length}</span></div>
+    <div class="card soft" style="padding-block:4px">${POST_EX.map(([n, d, h], i) => `<div class="sess" style="flex-direction:column;align-items:stretch;gap:3px"><span class="row between"><b>${i + 1}. ${esc(n)}</b><span class="mono muted" style="font-size:11.5px;white-space:nowrap">${esc(d)}</span></span><span class="muted small">${esc(h)}</span></div>`).join('')}</div>
+    <details class="card soft more"><summary><h3>Recomendaciones</h3></summary><ol class="refs"><li>Hazlos constante, idealmente mañana y noche.</li><li>Mantén la espalda recta para no cargar tensión innecesaria.</li><li>Movimientos suaves en el masaje para no dañar la piel.</li></ol></details>`;
+}
+function openCitaNote() {
+  const doc = citasDoc();
+  openSheet('Por averiguar', `<section class="card soft"><label class="f"><span class="label">Nota</span><textarea id="cn-t" style="min-height:120px">${esc(doc.note || '')}</textarea></label></section><button class="primary" id="cn-save">Guardar</button>`, sh => {
+    $('#cn-save', sh).addEventListener('click', async () => { doc.note = $('#cn-t', sh).value.trim(); if (await saveHealth('citas', doc, 'Nota guardada')) closeSheet(); });
+  });
 }
 
 /* ---------- Resumen ---------- */
@@ -1986,7 +2200,24 @@ document.addEventListener('click', ev => {
     case 'seg': S.progSeg = ds.v; render(); break;
     case 'checkin': openCheckin(ds.date); break;
     case 'pose': S.ciPose = ds.v; render(); break;
-    case 'gorev': S.tab = 'prog'; S.progSeg = 'rev'; try { localStorage.setItem('tg-tab', S.tab); } catch (e) {} render(); window.scrollTo(0, 0); break;
+    case 'gorev': S.tab = 'cal'; S.calSeg = 'prog'; S.progSeg = 'rev'; try { localStorage.setItem('tg-tab', S.tab); localStorage.setItem('tg-calseg', 'prog'); } catch (e) {} render(); window.scrollTo(0, 0); break;
+    case 'cseg': S.calSeg = ds.v; try { localStorage.setItem('tg-calseg', ds.v); } catch (e) {} render(); window.scrollTo(0, 0); break;
+    case 'hseg': S.saludSeg = ds.v; try { localStorage.setItem('tg-hseg', ds.v); } catch (e) {} render(); window.scrollTo(0, 0); break;
+    case 'cita': openCita(ds.id); break;
+    case 'citaok': { const doc = citasDoc(), it = doc.items.find(x => x.id === ds.id); if (it) { it.done = !it.done; it.doneAt = it.done ? today() : null; saveHealth('citas', doc, it.done ? 'Marcada como hecha' : 'Marcada como pendiente'); } break; }
+    case 'citanote': openCitaNote(); break;
+    case 'postok': { const t = today(), days = clone(S.health.postura?.days || {}), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('postura', { days }); break; }
+    case 'rutok': { const t = today(), days = clone(rutDays()), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('rutina', { days }); break; }
+    case 'adic': openAdic(ds.id); break;
+    case 'adicgo': { const doc = adicDoc(), it = doc.items.find(x => x.id === ds.id); if (it) { it.since = today(); saveHealth('adic', doc, `Contador de ${it.name} en marcha`); } break; }
+    case 'relapse': {
+      if (ds.armed !== '1') { a.dataset.armed = '1'; a.textContent = '¿Seguro? Toca otra vez'; setTimeout(() => { if (a.isConnected) { a.dataset.armed = ''; a.textContent = 'Recaí'; } }, 4000); break; }
+      const doc = adicDoc(), it = doc.items.find(x => x.id === ds.id); if (!it?.since) break;
+      const n = daysSince(it.since);
+      it.log = [...(it.log || []), { from: it.since, to: today(), days: n }];
+      it.best = Math.max(it.best || 0, n); it.since = today();
+      saveHealth('adic', doc, `Racha de ${n} ${n === 1 ? 'día' : 'días'} guardada. Hoy empiezas de nuevo.`); break;
+    }
     case 'gate': { const c = { ...(S.plan.checks || {}) }; if (c[ds.g]) delete c[ds.g]; else c[ds.g] = today(); savePlan({ checks: c }); break; }
     case 'advance': {
       if (ds.armed !== '1') { a.dataset.armed = '1'; a.textContent = 'Confirmar: pasar de fase sin cumplir todo'; break; }
@@ -2048,7 +2279,7 @@ async function boot() {
   if (!db) { clearTimeout(timer); S.noDb = true; render(); return; }
   S.db = db;
   window.claude.use('assets').then(a => { S.assets = a; scheduleRender(); }).catch(() => {});
-  const pending = new Set(['programs', 'workouts', 'body', 'steps', 'joints', 'settings', 'plan', 'checkins', 'food', 'foods']);
+  const pending = new Set(['programs', 'workouts', 'body', 'steps', 'joints', 'settings', 'plan', 'checkins', 'food', 'foods', 'health']);
   db.doc('plan/main').onSnapshot(d => { S.plan = d.exists ? { ...d.data() } : null; got('plan', d); }, e => { pending.delete('plan'); scheduleRender(); });
   const got = (k, snap) => { if (!snap.metadata.fromCache && pending.delete(k) && !pending.size) { S.ready = true; S.slow = false; clearTimeout(timer); } scheduleRender(); };
   const onErr = k => e => { pending.delete(k); if (!pending.size) { S.ready = true; clearTimeout(timer); } if (e?.code === 'revoked' || e?.code === 'not_granted') S.noDb = true; scheduleRender(); };
@@ -2061,6 +2292,7 @@ async function boot() {
   db.collection('joints').onSnapshot(s => { S.joints = list(s).sort((a,b) => (a.order ?? 0) - (b.order ?? 0)); got('joints', s); }, onErr('joints'));
   db.collection('food').onSnapshot(s => { const o = {}; s.docs.forEach(d => o[d.id] = d.data()); S.food = o; got('food', s); }, onErr('food'));
   db.collection('foods').onSnapshot(s => { S.myFoods = list(s).sort((a,b) => (b.createdAt||0) - (a.createdAt||0)); got('foods', s); }, onErr('foods'));
+  db.collection('health').onSnapshot(s => { const o = {}; s.docs.forEach(d => o[d.id] = d.data()); S.health = o; got('health', s); }, onErr('health'));
   db.doc('settings/main').onSnapshot(d => { S.settings = d.exists ? { ...d.data() } : {}; got('settings', d); }, onErr('settings'));
 }
 window.addEventListener('tg-rerender', scheduleRender);
