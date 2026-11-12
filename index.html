@@ -410,6 +410,15 @@ details.more[open] summary::after{content:"−"}
 .crow .ck[aria-pressed="true"] svg{opacity:1}
 .crow .cmain{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:4px}
 .crow .cmain b{font-weight:500}
+.tipbtn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 14px 6px 10px;font-size:13px;border-color:var(--edge)}
+.tipbtn svg{width:18px;height:18px;fill:none;stroke:var(--warn);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.tipbtn[aria-expanded="true"]{background:var(--surface-2)}
+.tipchat{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.bub{position:relative;max-width:88%;background:var(--surface-2);border:1px solid var(--line);border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:14px;line-height:1.4;display:flex;flex-direction:column;gap:2px}
+.bub b{font-family:var(--font-mono);font-weight:500;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--warn)}
+.bub:first-child{border-top-right-radius:4px}
+.bub:last-child::after{content:"";position:absolute;right:-1px;bottom:-7px;width:12px;height:8px;background:var(--surface-2);border-right:1px solid var(--line);border-bottom:1px solid var(--line);border-bottom-right-radius:10px}
+@media (prefers-reduced-motion:no-preference){.bub{animation:pop .28s cubic-bezier(.2,.8,.2,1) both}@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}}}
 .crow .cdot{width:8px;height:8px;border-radius:50%;border:1px solid var(--faint);margin:9px 0 0 13px}
 .ptog{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-radius:14px;border-color:var(--line);min-height:64px;padding:12px 14px;font-weight:400}
 .ptog[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
@@ -1134,12 +1143,14 @@ function vSupl() {
   const row = (it, chk) => `<div class="crow">${chk ? `<button class="ck" data-act="suplok" data-id="${esc(it.id)}" aria-pressed="${taken.has(it.id)}" aria-label="${taken.has(it.id) ? 'Desmarcar' : 'Marcar tomado'}: ${esc(it.name)}"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></button>` : '<span class="cdot" aria-hidden="true"></span>'}
     <button class="cmain" data-act="supl" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.note ? `<span class="muted small">${esc(it.note)}</span>` : ''}</button></div>`;
   const nTaken = on.filter(i => taken.has(i.id)).length;
-  return `<div class="sec"><span class="t">Los que tomo · hoy</span><span class="m">${nTaken}/${on.length}</span></div>
+  const bulb = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>`;
+  const tips = S.suplTips ? `<div class="tipchat" role="region" aria-label="Tips para tomarlos">${SUPL_TIPS.map(([h, x], i) => `<div class="bub" style="animation-delay:${i * 90}ms"><b>${esc(h)}</b>${esc(x)}</div>`).join('')}</div>` : '';
+  return `<div class="row between"><span class="label">Tus suplementos</span><button class="tipbtn" data-act="supltips" aria-expanded="${!!S.suplTips}">${bulb}${S.suplTips ? 'Cerrar tips' : 'Tips'}</button></div>${tips}
+    <div class="sec"><span class="t">Los que tomo · hoy</span><span class="m">${nTaken}/${on.length}</span></div>
     ${on.length ? `<div class="card soft" style="padding-block:4px">${on.map(i => row(i, true)).join('')}</div>` : '<div class="empty">Toca un suplemento de abajo y márcalo como “Lo tomo”.</div>'}
     <div class="sec"><span class="t">Por empezar / me servirían</span><span class="m">${off.length}</span></div>
     ${off.length ? `<div class="card soft" style="padding-block:4px">${off.map(i => row(i, false)).join('')}</div>` : ''}
-    <button data-act="supl" data-id="">+ Añadir suplemento</button>
-    <details class="card soft more"><summary><h3>Tips para tomarlos</h3></summary><ol class="refs">${SUPL_TIPS.map(([h, x]) => `<li><b>${esc(h)}:</b> ${esc(x)}</li>`).join('')}</ol></details>`;
+    <button data-act="supl" data-id="">+ Añadir suplemento</button>`;
 }
 function openSupl(id) {
   const doc = suplDoc(), it = doc.items.find(x => x.id === id) || { id: uid(), name: '', note: '', on: false }, isNew = !doc.items.includes(it);
@@ -2270,6 +2281,7 @@ document.addEventListener('click', ev => {
     case 'citanote': openCitaNote(); break;
     case 'suplok': { const doc = suplDoc(), t = today(), s = new Set(doc.days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) doc.days[t] = [...s]; else delete doc.days[t]; saveHealth('supl', doc); break; }
     case 'supl': openSupl(ds.id); break;
+    case 'supltips': S.suplTips = !S.suplTips; render(); break;
     case 'postok': { const t = today(), days = clone(S.health.postura?.days || {}), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('postura', { days }); break; }
     case 'rutok': { const t = today(), days = clone(rutDays()), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('rutina', { days }); break; }
     case 'adic': openAdic(ds.id); break;
