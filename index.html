@@ -410,6 +410,7 @@ details.more[open] summary::after{content:"−"}
 .crow .ck[aria-pressed="true"] svg{opacity:1}
 .crow .cmain{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:4px}
 .crow .cmain b{font-weight:500}
+.crow .cdot{width:8px;height:8px;border-radius:50%;border:1px solid var(--faint);margin:9px 0 0 13px}
 .ptog{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border-radius:14px;border-color:var(--line);min-height:64px;padding:12px 14px;font-weight:400}
 .ptog[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .ptog[aria-pressed="true"] .label{color:var(--on-accent);opacity:.7}
@@ -961,7 +962,7 @@ function saveHealth(key, doc, msg) {
 const HSEGS = [['adic', 'Adicciones'], ['citas', 'Citas'], ['supl', 'Suplementos'], ['resp', 'Respiración'], ['post', 'Postura']];
 function vSalud() {
   const seg = `<div class="chips hchips" role="group" aria-label="Sección de salud">${HSEGS.map(([k, n]) => `<button data-act="hseg" data-v="${k}" aria-pressed="${S.saludSeg === k}">${n}</button>`).join('')}</div>`;
-  const v = { adic: vAdic, citas: vCitas, resp: vResp, post: vPost }[S.saludSeg];
+  const v = { adic: vAdic, citas: vCitas, supl: vSupl, resp: vResp, post: vPost }[S.saludSeg];
   if (v) return seg + v();
   const n = HSEGS.find(x => x[0] === S.saludSeg)?.[1] || '';
   return seg + `<div class="empty">${esc(n)}: esta parte se llena con tu nota. En cuanto la mandes, queda aquí.</div>`;
@@ -1100,6 +1101,67 @@ function vPost() {
     <div class="sec"><span class="t">Ejercicios · cuello y mandíbula</span><span class="m">${POST_EX.length}</span></div>
     <div class="card soft" style="padding-block:4px">${POST_EX.map(([n, d, h], i) => `<div class="sess" style="flex-direction:column;align-items:stretch;gap:3px"><span class="row between"><b>${i + 1}. ${esc(n)}</b><span class="mono muted" style="font-size:11.5px;white-space:nowrap">${esc(d)}</span></span><span class="muted small">${esc(h)}</span></div>`).join('')}</div>
     <details class="card soft more"><summary><h3>Recomendaciones</h3></summary><ol class="refs"><li>Hazlos constante, idealmente mañana y noche.</li><li>Mantén la espalda recta para no cargar tensión innecesaria.</li><li>Movimientos suaves en el masaje para no dañar la piel.</li></ol></details>`;
+}
+// Supplements: doc `health/supl` { items:[{id,name,note,on}], days:{ 'yyyy-mm-dd': [ids taken] } }. on = currently taking.
+const SUPL_DEF = [
+  ['Magnesio', 'Mineral: no junto con otro mineral; mañana o noche.'],
+  ['Omega 3 EPA-DHA', 'Con comida, para evitar molestias estomacales o náuseas.'],
+  ['Proteína con BCAA', 'En ayunas o cerca del entreno.', true],
+  ['Vitamina D y K', 'Liposolubles: con grasa (p. ej. una cucharadita de aceite de coco).'],
+  ['Vitamina C', 'Cualquier momento del día; ayuda a absorber minerales.'],
+  ['Creatina', ''],
+  ['Proteína', ''],
+  ['Colágeno hidrolizado tipo II', ''],
+  ['NAD+', ''],
+  ['Prebióticos y probióticos', 'Psyllium y kéfir / yogur griego.', true],
+  ['Psyllium', '', true],
+  ['Kéfir', ''],
+  ['Cúrcuma + pimienta', 'No combinar con jengibre y limón (según tu nota, la cúrcuma pierde sus propiedades).'],
+  ['Shots de jengibre', ''],
+  ['Semillas de calabaza', 'Crudas o remojadas toda la noche. Cualquier hora.'],
+  ['Chía', 'Remojar 30 min y moler. Mañana o noche.']
+];
+const SUPL_TIPS = [
+  ['Vitaminas hidrosolubles (B y C)', 'Cualquier momento del día. La vitamina C aumenta la absorción de minerales.'],
+  ['Vitaminas liposolubles (A, D, E y K)', 'Con grasas para absorberlas mejor, p. ej. una cucharadita de aceite de coco.'],
+  ['Minerales', 'No tomar 2 o más al mismo tiempo, y con el estómago vacío (mañana o noche).'],
+  ['Omegas', 'Acompañados de comida para evitar molestias estomacales o náuseas.'],
+  ['Aminoácidos', 'En ayunas o cerca de la hora de entrenar.']
+];
+const suplDoc = () => { const d = clone(S.health.supl || { items: SUPL_DEF.map(([name, note, on], i) => ({ id: 's' + i, name, note, on: !!on })), days: {} }); d.days = d.days || {}; return d; };
+function vSupl() {
+  const doc = suplDoc(), t = today(), taken = new Set(doc.days[t] || []), on = doc.items.filter(i => i.on), off = doc.items.filter(i => !i.on);
+  const row = (it, chk) => `<div class="crow">${chk ? `<button class="ck" data-act="suplok" data-id="${esc(it.id)}" aria-pressed="${taken.has(it.id)}" aria-label="${taken.has(it.id) ? 'Desmarcar' : 'Marcar tomado'}: ${esc(it.name)}"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></button>` : '<span class="cdot" aria-hidden="true"></span>'}
+    <button class="cmain" data-act="supl" data-id="${esc(it.id)}"><b>${esc(it.name)}</b>${it.note ? `<span class="muted small">${esc(it.note)}</span>` : ''}</button></div>`;
+  const nTaken = on.filter(i => taken.has(i.id)).length;
+  return `<div class="sec"><span class="t">Los que tomo · hoy</span><span class="m">${nTaken}/${on.length}</span></div>
+    ${on.length ? `<div class="card soft" style="padding-block:4px">${on.map(i => row(i, true)).join('')}</div>` : '<div class="empty">Toca un suplemento de abajo y márcalo como “Lo tomo”.</div>'}
+    <div class="sec"><span class="t">Por empezar / me servirían</span><span class="m">${off.length}</span></div>
+    ${off.length ? `<div class="card soft" style="padding-block:4px">${off.map(i => row(i, false)).join('')}</div>` : ''}
+    <button data-act="supl" data-id="">+ Añadir suplemento</button>
+    <details class="card soft more"><summary><h3>Tips para tomarlos</h3></summary><ol class="refs">${SUPL_TIPS.map(([h, x]) => `<li><b>${esc(h)}:</b> ${esc(x)}</li>`).join('')}</ol></details>`;
+}
+function openSupl(id) {
+  const doc = suplDoc(), it = doc.items.find(x => x.id === id) || { id: uid(), name: '', note: '', on: false }, isNew = !doc.items.includes(it);
+  const inner = `<section class="card soft">
+      <div class="seg" role="group" aria-label="Estado"><button type="button" data-k="1" aria-pressed="${!!it.on}">Lo tomo</button><button type="button" data-k="" aria-pressed="${!it.on}">Por empezar</button></div>
+      <label class="f"><span class="label">Suplemento</span><input id="sp-name" value="${esc(it.name)}" placeholder="Ej. Magnesio"></label>
+      <label class="f"><span class="label">Dosis, hora o nota</span><textarea id="sp-note" placeholder="Ej. 400 mg por la noche">${esc(it.note || '')}</textarea></label></section>
+    <div class="row"><button class="primary grow" id="sp-save">Guardar</button>${isNew ? '' : '<button class="danger" id="sp-del">Borrar</button>'}</div>`;
+  openSheet(isNew ? 'Nuevo suplemento' : it.name, inner, sh => {
+    let on = !!it.on;
+    $$('.seg button', sh).forEach(b => b.addEventListener('click', () => { on = !!b.dataset.k; $$('.seg button', sh).forEach(x => x.setAttribute('aria-pressed', x === b)); }));
+    $('#sp-save', sh).addEventListener('click', async () => {
+      const name = $('#sp-name', sh).value.trim(); if (!name) { toast('Pon el nombre del suplemento.'); return; }
+      Object.assign(it, { name, note: $('#sp-note', sh).value.trim(), on });
+      if (isNew) doc.items.push(it);
+      if (await saveHealth('supl', doc, 'Guardado')) closeSheet();
+    });
+    $('#sp-del', sh)?.addEventListener('click', async ev => {
+      const b = ev.currentTarget; if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar borrado'; return; }
+      doc.items = doc.items.filter(x => x.id !== it.id); if (await saveHealth('supl', doc, 'Borrado')) closeSheet();
+    });
+  });
 }
 function openCitaNote() {
   const doc = citasDoc();
@@ -2206,6 +2268,8 @@ document.addEventListener('click', ev => {
     case 'cita': openCita(ds.id); break;
     case 'citaok': { const doc = citasDoc(), it = doc.items.find(x => x.id === ds.id); if (it) { it.done = !it.done; it.doneAt = it.done ? today() : null; saveHealth('citas', doc, it.done ? 'Marcada como hecha' : 'Marcada como pendiente'); } break; }
     case 'citanote': openCitaNote(); break;
+    case 'suplok': { const doc = suplDoc(), t = today(), s = new Set(doc.days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) doc.days[t] = [...s]; else delete doc.days[t]; saveHealth('supl', doc); break; }
+    case 'supl': openSupl(ds.id); break;
     case 'postok': { const t = today(), days = clone(S.health.postura?.days || {}), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('postura', { days }); break; }
     case 'rutok': { const t = today(), days = clone(rutDays()), s = new Set(days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) days[t] = [...s]; else delete days[t]; saveHealth('rutina', { days }); break; }
     case 'adic': openAdic(ds.id); break;
