@@ -103,6 +103,7 @@ label.f{display:flex;flex-direction:column;gap:6px;min-width:0}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:400;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 .chip.acc{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chip.bad{color:var(--bad);border-color:currentColor}.chip.warn{color:var(--warn);border-color:currentColor}.chip.good{color:var(--good);border-color:currentColor}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none;background:var(--muted)}
 .c-mustard{--pc:var(--sand)} .c-blue{--pc:var(--blue)} .c-green{--pc:var(--green)} .c-red{--pc:var(--red)} .c-ink{--pc:var(--fg)} .c-libre{--pc:var(--faint)}
 .dot[class*="c-"]{background:var(--pc)}
@@ -968,10 +969,10 @@ function saveHealth(key, doc, msg) {
   S.health = { ...S.health, [key]: doc }; render();
   return write(db => db.doc('health/' + key).set(doc), msg);
 }
-const HSEGS = [['adic', 'Adicciones'], ['citas', 'Citas'], ['supl', 'Suplementos'], ['resp', 'Respiración'], ['post', 'Postura']];
+const HSEGS = [['adic', 'Adicciones'], ['citas', 'Citas'], ['supl', 'Suplementos'], ['aler', 'Alergias'], ['resp', 'Respiración'], ['post', 'Postura']];
 function vSalud() {
   const seg = `<div class="chips hchips" role="group" aria-label="Sección de salud">${HSEGS.map(([k, n]) => `<button data-act="hseg" data-v="${k}" aria-pressed="${S.saludSeg === k}">${n}</button>`).join('')}</div>`;
-  const v = { adic: vAdic, citas: vCitas, supl: vSupl, resp: vResp, post: vPost }[S.saludSeg];
+  const v = { adic: vAdic, citas: vCitas, supl: vSupl, aler: vAler, resp: vResp, post: vPost }[S.saludSeg];
   if (v) return seg + v();
   const n = HSEGS.find(x => x[0] === S.saludSeg)?.[1] || '';
   return seg + `<div class="empty">${esc(n)}: esta parte se llena con tu nota. En cuanto la mandes, queda aquí.</div>`;
@@ -1171,6 +1172,56 @@ function openSupl(id) {
     $('#sp-del', sh)?.addEventListener('click', async ev => {
       const b = ev.currentTarget; if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar borrado'; return; }
       doc.items = doc.items.filter(x => x.id !== it.id); if (await saveHealth('supl', doc, 'Borrado')) closeSheet();
+    });
+  });
+}
+// Allergies: doc `health/alergias` { items:[{id,name,group:'ali'|'med'|'otro',level:'si'|'duda'|'no',inc}] }. Seeded from the user's Notion page.
+const ALER_DEF = [
+  ['Pescado blanco (magro)', 'ali', 'si', 'Merluza, bacalao, tilapia, sierra'],
+  ['Pescado semigraso (de roca)', 'ali', 'duda', 'Dorada, salmonete, besugo…'],
+  ['Pescado azul (graso)', 'ali', 'no', 'Salmón, atún, trucha, carpa, sardina, boquerón, anchoa'],
+  ['Mariscos', 'ali', 'si', ''],
+  ['Frutos secos', 'ali', 'si', ''],
+  ['Lenteja', 'ali', 'si', ''],
+  ['AINEs', 'med', 'si', 'Ibuprofeno, naproxeno, aspirina, diclofenaco']
+];
+const ALER_LV = { si: ['Alergia', 'bad'], duda: ['Por confirmar', 'warn'], no: ['Lo tolero', 'good'] };
+const ALER_GR = [['ali', 'Alimentos'], ['med', 'Medicamentos'], ['otro', 'Otras']];
+const alerDoc = () => clone(S.health.alergias || { items: ALER_DEF.map(([name, group, level, inc], i) => ({ id: 'a' + i, name, group, level, inc })) });
+function vAler() {
+  const items = alerDoc().items, yes = items.filter(i => i.level === 'si');
+  const row = it => { const [lt, lc] = ALER_LV[it.level] || ALER_LV.si;
+    return `<button class="cmain" data-act="aler" data-id="${esc(it.id)}" style="padding-block:10px"><span class="row between" style="gap:8px"><b>${esc(it.name)}</b><span class="chip ${lc}">${lt}</span></span>${it.inc ? `<span class="muted small">${esc(it.inc)}</span>` : ''}</button>`; };
+  const groups = ALER_GR.map(([g, n]) => { const l = items.filter(i => (i.group || 'otro') === g); if (!l.length) return '';
+    l.sort((a, b) => 'si duda no'.indexOf(a.level) - 'si duda no'.indexOf(b.level));
+    return `<div class="sec"><span class="t">${n}</span><span class="m">${l.length}</span></div><div class="card soft" style="padding-block:2px">${l.map(row).join('<hr style="border:0;border-top:1px solid var(--line);margin:0">')}</div>`; }).join('');
+  return `<section class="card soft"><span class="label">Alergias confirmadas</span>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${yes.length ? yes.map(i => `<span class="chip bad">${esc(i.name)}</span>`).join('') : '<span class="muted small">Nada anotado.</span>'}</div></section>
+    ${groups}
+    <button data-act="aler" data-id="">+ Añadir alergia</button>
+    <p class="muted small" style="margin:0">Toca una para cambiar si es alergia, si está por confirmar o si la toleras.</p>`;
+}
+function openAler(id) {
+  const doc = alerDoc(), it = doc.items.find(x => x.id === id) || { id: uid(), name: '', group: 'ali', level: 'si', inc: '' }, isNew = !doc.items.includes(it);
+  const seg = (k, opts, cur) => `<div class="seg" role="group" data-g="${k}">${opts.map(([v, n]) => `<button type="button" data-k="${v}" aria-pressed="${cur === v}">${n}</button>`).join('')}</div>`;
+  const inner = `<section class="card soft">
+      ${seg('group', ALER_GR.map(([v, n]) => [v, n === 'Otras' ? 'Otra' : n.replace(/s$/, '')]), it.group || 'otro')}
+      ${seg('level', Object.entries(ALER_LV).map(([v, [n]]) => [v, n]), it.level || 'si')}
+      <label class="f"><span class="label">Alergia</span><input id="al-name" value="${esc(it.name)}" placeholder="Ej. Penicilina, polen…"></label>
+      <label class="f"><span class="label">Incluye / ejemplos</span><textarea id="al-inc" placeholder="Qué entra aquí, reacción que te da…">${esc(it.inc || '')}</textarea></label></section>
+    <div class="row"><button class="primary grow" id="al-save">Guardar</button>${isNew ? '' : '<button class="danger" id="al-del">Borrar</button>'}</div>`;
+  openSheet(isNew ? 'Nueva alergia' : it.name, inner, sh => {
+    const val = { group: it.group || 'otro', level: it.level || 'si' };
+    $$('.seg', sh).forEach(s => $$('button', s).forEach(b => b.addEventListener('click', () => { val[s.dataset.g] = b.dataset.k; $$('button', s).forEach(x => x.setAttribute('aria-pressed', x === b)); })));
+    $('#al-save', sh).addEventListener('click', async () => {
+      const name = $('#al-name', sh).value.trim(); if (!name) { toast('Pon a qué eres alérgico.'); return; }
+      Object.assign(it, { name, inc: $('#al-inc', sh).value.trim(), ...val });
+      if (isNew) doc.items.push(it);
+      if (await saveHealth('alergias', doc, 'Guardado')) closeSheet();
+    });
+    $('#al-del', sh)?.addEventListener('click', async ev => {
+      const b = ev.currentTarget; if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar borrado'; return; }
+      doc.items = doc.items.filter(x => x.id !== it.id); if (await saveHealth('alergias', doc, 'Borrado')) closeSheet();
     });
   });
 }
@@ -2277,6 +2328,7 @@ document.addEventListener('click', ev => {
     case 'cseg': S.calSeg = ds.v; try { localStorage.setItem('tg-calseg', ds.v); } catch (e) {} render(); window.scrollTo(0, 0); break;
     case 'hseg': S.saludSeg = ds.v; try { localStorage.setItem('tg-hseg', ds.v); } catch (e) {} render(); window.scrollTo(0, 0); break;
     case 'cita': openCita(ds.id); break;
+    case 'aler': openAler(ds.id); break;
     case 'citaok': { const doc = citasDoc(), it = doc.items.find(x => x.id === ds.id); if (it) { it.done = !it.done; it.doneAt = it.done ? today() : null; saveHealth('citas', doc, it.done ? 'Marcada como hecha' : 'Marcada como pendiente'); } break; }
     case 'citanote': openCitaNote(); break;
     case 'suplok': { const doc = suplDoc(), t = today(), s = new Set(doc.days[t] || []); if (s.has(ds.id)) s.delete(ds.id); else s.add(ds.id); if (s.size) doc.days[t] = [...s]; else delete doc.days[t]; saveHealth('supl', doc); break; }
