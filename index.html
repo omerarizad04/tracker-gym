@@ -151,7 +151,9 @@ label.f{display:flex;flex-direction:column;gap:6px;min-width:0}
 .pyr .mid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
 .pyr .mid .col{display:flex;flex-direction:column;gap:4px}
 .pyr .base{flex-direction:column;gap:4px;padding:6px 6px 8px;align-items:center;justify-content:flex-start}
-.pyr .base>span{min-height:24px;display:flex;align-items:center}
+.pyr .base>.lbl{min-height:24px;display:flex;align-items:center;background:none;border:0;padding:0 8px;color:inherit;font:inherit;cursor:pointer}
+.pyr button.t{font:inherit;font-weight:500;font-size:12.5px;cursor:pointer;width:100%;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pyr button.t:active,.pyr .lbl:active{transform:scale(.97)}
 .pyr .base .t{min-height:34px;width:84%}
 .pyr .base .t:last-child{width:92%}
 .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:s}
@@ -281,6 +283,7 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 .chart .gl{stroke:var(--line);stroke-width:1}
 .hist{display:flex;flex-direction:column}
 .hist .h{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.hist button.h{width:100%;background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;min-height:0;font-weight:400;text-align:left;color:inherit;cursor:pointer}
 .hist .h:last-child{border-bottom:0}
 .seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
 .seg button{flex:1;border:0;background:transparent;min-height:36px;font-size:13.5px;padding:6px 10px;border-radius:999px;color:var(--muted)}
@@ -664,7 +667,8 @@ function vRut() {
     <div class="row between"><div class="grow"><h2><i class="dot c-${esc(p.color)}" style="width:11px;height:11px;vertical-align:middle"></i> ${esc(p.name)}</h2>${p.subtitle ? `<div class="muted small">${esc(p.subtitle)}</div>` : ''}</div>
       ${p.kind === 'joints' ? '<span class="chip">Complementaria</span>' : ap?.id === p.id ? '<span class="chip acc">Activa</span>' : `<button class="sm" data-act="activate" data-p="${esc(p.id)}">Activar</button>`}</div>
     ${p.notes ? `<div class="banner">${esc(p.notes).replace(/\n/g, '<br>')}</div>` : ''}
-    <div class="hist">${(p.days||[]).map(d => `<div class="h"><span>${d.weekday != null ? `<b>${DOWS[d.weekday]}</b> · ` : ''}${esc(d.name)}</span><span class="muted">${dayExNames(d).length} ejercicios</span></div>`).join('')}</div>
+    <div class="hist">${(p.days||[]).map(d => `<button type="button" class="h" data-act="dayw" data-p="${esc(p.id)}" data-d="${esc(d.id)}"><span>${d.weekday != null ? `<b>${DOWS[d.weekday]}</b> · ` : ''}${esc(d.name)}</span><span class="muted">${dayExNames(d).length} ejercicios</span></button>`).join('')}</div>
+    ${p.kind !== 'joints' && (p.days||[]).length ? '<p class="small muted" style="margin:0">Toca un día para ajustar los pesos actuales y ver cómo han subido.</p>' : ''}
     <div class="row"><button class="sm" data-act="edit" data-p="${esc(p.id)}">Editar rutina</button></div></section>`).join('');
   html += `<button class="dashed" data-act="edit" data-p="">+ Nueva rutina</button>`;
   const s = S.settings;
@@ -1291,13 +1295,81 @@ const SESSION_ORDER = [
   ['Core y estabilidad', 'Anti-extensión, anti-rotación, carries.'],
   ['Resistencia', 'De mayor a menor intensidad: HIIT o sprints repetidos → intervalos largos → zona 2.']
 ];
+const TIER_INFO = {
+  mobility: {
+    pos: 'La base de todo, el escalón más bajo.',
+    what: 'El rango de movimiento que tus articulaciones pueden alcanzar de forma activa, con control propio, no solo cuando alguien te empuja.',
+    why: 'Va abajo porque es lo primero que el cuerpo necesita: si una articulación no llega a la posición, todo lo demás se construye sobre una compensación. Un tobillo rígido obliga a la rodilla a desviarse en la sentadilla; una cadera cerrada carga la zona lumbar.',
+    matters: 'Sin rango no hay técnica limpia, y sin técnica limpia la carga se va a tejidos que no están preparados para soportarla. Es el seguro contra lesiones más barato que existe.',
+    lack: 'No llegas a la profundidad de una sentadilla sin redondear la espalda, no puedes subir los brazos por encima de la cabeza sin arquear la zona lumbar, o un lado se mueve claramente menos que el otro.',
+    how: 'CARs diarios (rotaciones articulares controladas), estiramiento activo, trabajo en rangos finales con poca carga.'
+  },
+  stability: {
+    pos: 'Justo encima de la movilidad, todavía dentro de la base.',
+    what: 'La capacidad de controlar ese rango: mantener una articulación quieta o en la trayectoria correcta mientras el resto del cuerpo se mueve o recibe fuerza.',
+    why: 'Va después de la movilidad porque solo puedes estabilizar un rango que ya tienes. Y va antes que la fuerza porque el cuerpo, por instinto, frena la fuerza que no puede controlar: si el tronco o la rodilla no son estables, el músculo no rinde al cien.',
+    matters: 'Movilidad sin estabilidad es una articulación suelta: llega lejos pero sin control, y ahí aparecen las lesiones. La estabilidad convierte el rango en algo usable.',
+    lack: 'Te tambaleas en ejercicios a una pierna, la rodilla se va hacia dentro al bajar, el tronco se dobla o gira cuando cargas peso de un solo lado.',
+    how: 'Anti-extensión y anti-rotación (planchas, pallof press), carries, trabajo a una pierna, pausas en la parte difícil del movimiento.'
+  },
+  movement: {
+    pos: 'El bloque grande que sostiene toda la pirámide.',
+    what: 'Movilidad y estabilidad juntas: moverte bien en los patrones básicos (sentadilla, bisagra, empuje, tracción, zancada, rotación) antes de cargarlos.',
+    why: 'Es el escalón más ancho a propósito. Cuanto más grande sea la base, más alto puedes construir sin que la pirámide se caiga. Gray Cook la dibujó así: primero te mueves bien, luego te mueves mucho.',
+    matters: 'Todo lo de arriba es «movimiento con más carga, más velocidad o más tiempo». Si el patrón está mal, la fuerza y la potencia solo hacen más grande un error.',
+    lack: 'Cualquier patrón básico que no puedas hacer con buena técnica sin peso, o que te cause molestias.',
+    how: 'Trabajar movilidad y estabilidad a diario y practicar los patrones con poco peso hasta que salgan limpios y simétricos.'
+  },
+  strength: {
+    pos: 'Primer escalón encima de la base.',
+    what: 'La capacidad de producir fuerza contra una resistencia, sin importar la velocidad.',
+    why: 'Va encima del movimiento porque cargar un patrón mal hecho es la receta clásica de lesión. Y va debajo de la potencia porque no puedes mover rápido algo que no puedes mover despacio: la fuerza es el techo de la potencia.',
+    matters: 'Protege articulaciones y tendones, mejora la densidad ósea, y casi todo lo que haces (correr, saltar, cargar cosas) depende de ella. Es lo que más rinde a largo plazo.',
+    lack: 'Te estancas en saltos o sprints, te cansas pronto en tareas físicas, o te duelen articulaciones con cargas que deberían ser fáciles.',
+    how: 'Ejercicios compuestos con carga alta, pocas repeticiones (3-6), descansos largos y técnica estricta.'
+  },
+  power: {
+    pos: 'Encima de la fuerza, en la columna izquierda.',
+    what: 'Fuerza aplicada rápido: cuánta fuerza generas por unidad de tiempo. Es lo que te hace saltar, lanzar o arrancar.',
+    why: 'Va encima de la fuerza porque es fuerza más velocidad: si no tienes la fuerza, no hay nada que acelerar. Además, el impacto de saltos y aterrizajes exige tendones y articulaciones ya preparados por las fases anteriores.',
+    matters: 'Es la cualidad que más se pierde con la edad y la que más se nota en el deporte y en la vida diaria: reaccionar a un tropiezo, subir escaleras rápido, cambiar de dirección.',
+    lack: 'Eres fuerte en el gimnasio pero lento al saltar, esprintar o lanzar.',
+    how: 'Saltos, lanzamientos de balón medicinal, olímpicos o balísticos. Pocas repeticiones, máxima intención y descanso completo. Siempre al principio de la sesión, con el sistema nervioso fresco.'
+  },
+  endurance: {
+    pos: 'Al lado de fuerza y potencia, en la columna derecha.',
+    what: 'La capacidad de sostener un esfuerzo en el tiempo o repetirlo muchas veces: corazón, pulmones y músculos que aguantan.',
+    why: 'Está en paralelo a la fuerza y la potencia, no encima, porque es otra rama que también se apoya directamente en el movimiento. Repetir miles de veces un patrón defectuoso (por ejemplo, la zancada al correr) desgasta igual que cargarlo.',
+    matters: 'Mejora la salud del corazón, la recuperación entre series y entre sesiones, y te permite mantener buena técnica cuando ya estás cansado.',
+    lack: 'Te ahogas rápido, tardas mucho en recuperarte entre series o tu técnica se rompe en cuanto llega la fatiga.',
+    how: 'Mucha zona 2 (puedes hablar mientras lo haces) y un poco de alta intensidad: intervalos o sprints repetidos. Al final de la sesión, porque es lo que más cansa.'
+  },
+  skill: {
+    pos: 'La cima de la pirámide.',
+    what: 'Usar todo lo anterior en una tarea concreta: un deporte, un movimiento técnico, una disciplina.',
+    why: 'Va arriba porque es lo más específico y lo que más depende de los demás niveles. La habilidad solo puede ser tan buena como la base física que la sostiene; si debajo falta algo, la técnica compensa y se rompe bajo presión.',
+    matters: 'Es lo que de verdad quieres conseguir. Los niveles de abajo existen para que esta parte salga bien, rinda más y no te lesione.',
+    lack: 'Sabes cómo se hace, pero tu cuerpo no responde, o te lesionas siempre en el mismo gesto.',
+    how: 'Practicar la tarea concreta con calidad, sin fatiga excesiva, y volver a los niveles de abajo cuando algo falle.'
+  }
+};
+function tierSheet(k) {
+  const I = TIER_INFO[k]; if (!I) return;
+  const P = S.plan, ph = P?.phases || [], ci = Math.max(0, ph.findIndex(x => x.id === P?.currentPhase)), cur = ph[ci] || {};
+  const inTier = x => (x.tiers || []).includes(k) || (k === 'movement' && (x.tiers || []).some(t => t === 'mobility' || t === 'stability'));
+  const status = inTier(cur) ? 'En foco en tu fase actual' : ph.slice(0, ci).some(inTier) ? 'Ya trabajado en fases anteriores' : (() => { const n = ph.findIndex((x, i) => i > ci && inTier(x)); return n > 0 ? `Llega en la fase ${n}: ${esc(ph[n].name)}` : ''; })();
+  const sec = (l, txt) => `<section class="card soft"><span class="label">${l}</span><p style="margin:0">${txt}</p></section>`;
+  openSheet(TIERS[k], `${status ? `<p class="small muted" style="margin:0 0 4px">${status}</p>` : ''}
+    ${sec('Qué es', I.what)}${sec('Por qué va en este lugar', `<b>${I.pos}</b> ${I.why}`)}${sec('Por qué importa', I.matters)}
+    ${sec('Señales de que te falta', I.lack)}${sec('Cómo se trabaja', I.how)}`);
+}
 function pyramid(on, done) {
-  const t = (k, st = '') => `<div class="t${on.includes(k) ? ' on' : done.includes(k) ? ' done' : ''}"${st ? ` style="${st}"` : ''}>${TIERS[k]}</div>`;
+  const t = (k, st = '') => `<button type="button" class="t${on.includes(k) ? ' on' : done.includes(k) ? ' done' : ''}" data-act="tier" data-k="${k}"${st ? ` style="${st}"` : ''}>${TIERS[k]}</button>`;
   const base = on.includes('movement') ? ' on' : done.includes('movement') ? ' done' : '';
-  return `<div class="pyr" role="img" aria-label="Pirámide de rendimiento: en foco ${on.map(k => TIERS[k]).join(', ')}">
-    <div style="width:56%">${t('skill')}</div>
+  return `<div class="pyr" aria-label="Pirámide de rendimiento: en foco ${on.map(k => TIERS[k]).join(', ')}">
+    <div style="width:56%;display:flex">${t('skill', 'width:100%')}</div>
     <div class="mid" style="width:78%"><div class="col">${t('power')}${t('strength')}</div>${t('endurance', 'height:100%')}</div>
-    <div class="t base${base}" style="width:100%"><span>Movimiento</span>${t('stability')}${t('mobility')}</div></div>`;
+    <div class="t base${base}" style="width:100%"><button type="button" class="lbl" data-act="tier" data-k="movement">Movimiento</button>${t('stability')}${t('mobility')}</div></div>`;
 }
 function vPerf() {
   const P = S.plan;
@@ -1318,7 +1390,7 @@ function vPerf() {
   <section class="card soft"><div class="row between"><h3>Pirámide de rendimiento</h3><span class="label">de abajo hacia arriba</span></div>
     ${pyramid(cur.tiers || [], done)}
     <div class="legend"><span><i class="dot" style="background:var(--fg)"></i>En foco ahora</span><span><i class="dot" style="background:transparent;border:1px solid var(--edge)"></i>Ya trabajado</span></div>
-    <p class="small muted" style="margin:0">Cada nivel se apoya en el de abajo. Si la base (movilidad y estabilidad) es pequeña, la fuerza y la potencia que pongas encima acaban en lesión.</p></section>
+    <p class="small muted" style="margin:0">Toca cualquier nivel para ver por qué importa y por qué va ahí. Cada nivel se apoya en el de abajo. Si la base (movilidad y estabilidad) es pequeña, la fuerza y la potencia que pongas encima acaban en lesión.</p></section>
   <section class="card soft"><h3>Cómo entrenar en esta fase</h3><ul class="blist">${(cur.training||[]).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
     ${(cur.avoid||[]).length ? `<span class="label" style="margin-top:4px">Evitar</span><ul class="blist">${cur.avoid.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</section>`;
   if (gates.length) html += `<section class="card"><div class="row between"><h3>Criterios para avanzar</h3><span class="chip">${passed} / ${gates.length}</span></div>
@@ -1924,22 +1996,19 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       const m = exMetric(ex);
       if (ex.parts?.length) {
         const parts = ex.parts.map(pt => ({ label: pt.label || '', sets: Math.max(1, Number(pt.sets) || 1), reps: pt.reps ?? '', weight: pt.weight ?? null, rp: !!pt.rp, rpW: pt.rpW ?? null, rpTo: pt.rpTo ?? null }));
-        const same = last?.e.parts?.length === parts.length, sets = [];
+        // a new session always starts from the routine's current values, never from the last session
+        const sets = [];
         parts.forEach((pt, k) => {
-          const prev = same ? last.e.sets.filter(s => (s.p ?? 0) === k) : [];
           for (let i = 0; i < pt.sets; i++) {
-            const rp = pt.rp && i === pt.sets - 1, ls = prev[i] && !!prev[i].rp === rp ? prev[i] : null;
-            sets.push({ r: ls?.r ?? (rp ? '' : pt.reps), w: isKg(m.m2) ? (ls?.w ?? (rp ? (pt.rpW ?? pt.weight ?? '') : (pt.weight ?? ''))) : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : (ls?.x ?? fromNote(ex.note, m.m2)), ok: false, p: k, rp });
+            const rp = pt.rp && i === pt.sets - 1;
+            sets.push({ r: rp ? '' : pt.reps, w: isKg(m.m2) ? (rp ? (pt.rpW ?? pt.weight ?? '') : (pt.weight ?? '')) : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : fromNote(ex.note, m.m2), ok: false, p: k, rp });
           }
         });
         items.push({ name: ex.name, block: b.title || '', tag: b.tag || '', target: { parts, note: ex.note }, parts, sets, last, m });
         return;
       }
-      const n = Math.max(1, Number(ex.sets) || (last?.e.sets.length) || 1), sets = [];
-      for (let i = 0; i < n; i++) {
-        const ls = last?.e.sets[i] || last?.e.sets[last.e.sets.length-1];
-        sets.push({ r: ls?.r ?? (ex.reps ?? ''), w: isKg(m.m2) ? (ls?.w ?? (ex.weight ?? '')) : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : (ls?.x ?? fromNote(ex.note, m.m2)), ok: false });
-      }
+      const n = Math.max(1, Number(ex.sets) || 1), sets = [];
+      for (let i = 0; i < n; i++) sets.push({ r: ex.reps ?? '', w: isKg(m.m2) ? (ex.weight ?? '') : '', x: isKg(m.m2) || m.m2 === 'none' ? '' : fromNote(ex.note, m.m2), ok: false });
       items.push({ name: ex.name, block: b.title || '', tag: b.tag || '', target: { sets: ex.sets, reps: ex.reps, weight: isKg(m.m2) ? ex.weight : null, note: ex.note }, sets, last, m });
     }));
   } else if (isFree) {
@@ -1985,7 +2054,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       <div class="fgrid"><label class="f"><span class="label">Duración (min)</span><input id="lg-dur" type="number" inputmode="numeric" value="${existing?.duration ?? ''}" placeholder="${live ? 'automática' : ''}"></label>
       <label class="f"><span class="label">Sensación</span><select id="lg-feel">${['—', '1 · Muy mal', '2 · Flojo', '3 · Normal', '4 · Bien', '5 · Excelente'].map((o, k) => `<option value="${k || ''}"${String(existing?.feel ?? '') === String(k || '') ? ' selected' : ''}>${o}</option>`).join('')}</select></label></div>
       <label class="f"><span class="label">Notas (molestias, cardio HIIT, sensaciones)</span><textarea id="lg-notes">${esc(existing?.notes || '')}</textarea></label>
-      ${p && p.kind !== 'joints' ? `<label class="row small"><input id="lg-upd" type="checkbox" checked style="width:auto"> Si subí de peso, actualizar el objetivo de la rutina</label>` : ''}</section>
+      ${p && p.kind !== 'joints' ? `<label class="row small"><input id="lg-upd" type="checkbox" style="width:auto"> Si subí de peso, actualizar el objetivo de la rutina</label>` : ''}</section>
     <div class="row"><button class="primary grow" id="lg-save">${existing ? 'Guardar cambios' : 'Terminar y guardar'}</button>${existing ? '<button class="danger" id="lg-del">Borrar</button>' : ''}</div>
     <div style="height:150px" aria-hidden="true"></div>
     <div class="rest" id="rest"><div class="in2">
@@ -2114,6 +2183,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
             return;
           }
           const m = e ? maxW(e) : null; if (m != null && (ex.weight == null || ex.weight === '' || m > Number(ex.weight))) { ex.weight = m; changed++; } }));
+        if (changed) stampHist(np, p);
         if (changed) await write(db => db.doc('programs/' + np.id).set(body(np)), `Guardado · ${changed} objetivo${changed > 1 ? 's' : ''} subido${changed > 1 ? 's' : ''}`);
       }
       if (ok) closeSheet(); else btn.disabled = false;
@@ -2224,6 +2294,56 @@ function setType(ex, t) {
   else if (t === 'rp') ex.parts = [{ label: '', sets: total, reps: base.reps ?? '', weight: base.weight ?? null, rp: true, rpW: (P && P[0].rpW) ?? base.weight ?? null, rpTo: (P && P[0].rpTo) ?? null }];
   else if (t === 'sub' && !(P?.length > 1)) { const one = { sets: base.sets || 2, reps: base.reps ?? '', weight: base.weight ?? null, rp: !!base.rp, rpW: base.rpW ?? null, rpTo: base.rpTo ?? null }; ex.parts = [{ label: 'Parte 1', ...one }, { label: 'Parte 2', ...one }]; }
 }
+/* ---------- routine weights: the working weight lives in the routine; each change is kept in ex.hist [{d, w}] ---------- */
+const exW = e => num(e?.parts?.length ? e.parts[0].weight : e?.weight);
+function stampHist(np, op) {
+  const d = today(), old = new Map();
+  (op?.days||[]).forEach(dy => (dy.blocks||[]).forEach(b => (b.exercises||[]).forEach(e => old.set(dy.id + '|' + norm(e.name), e))));
+  (np.days||[]).forEach(dy => (dy.blocks||[]).forEach(b => (b.exercises||[]).forEach(e => {
+    const w = exW(e), o = old.get(dy.id + '|' + norm(e.name)), ow = exW(o);
+    const h = e.hist = [...(e.hist || o?.hist || [])];
+    if (w == null) return;
+    // first record: keep the weight it had before this change, so the very first raise already shows up
+    if (!h.length && ow != null && ow !== w) h.push({ d, w: ow, base: true });
+    const l = h[h.length - 1];
+    if (l && l.w === w) return;
+    if (l && l.d === d && !l.base) l.w = w; else h.push({ d, w });
+  })));
+}
+function openDayWeights(pid, did) {
+  const p = prog(pid), dy = p?.days?.find(d => d.id === did); if (!dy) return;
+  const np = clone(p), nd = np.days.find(d => d.id === did), rows = [];
+  (nd.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => rows.push({ b, ex })));
+  let cur = null;
+  const inner = `<p class="small muted" style="margin:0">Estos son los pesos con los que empieza cada sesión en Registrar. Lo que hagas un día concreto se queda en esa sesión; aquí solo cambia cuando tú lo subes.</p>
+    ${rows.map(({ b, ex }, i) => {
+      const head = b.title !== cur ? (cur = b.title, b.title ? `<span class="blocktag ${esc(b.tag || '')}">${esc(b.title)}</span>` : '') : '';
+      const m = exMetric(ex), kg = isKg(m.m2), P = ex.parts?.length ? ex.parts : null, h = ex.hist || [];
+      const inp = (v, k, lab) => `<label class="row" style="gap:6px;flex-wrap:nowrap"><span class="small muted">${esc(lab)}</span><input data-wi="${i}"${k != null ? ` data-k="${k}"` : ''} type="number" inputmode="decimal" step="any" value="${hasV(v) ? v : ''}" placeholder="—" style="width:84px;text-align:right" aria-label="Kg ${esc(ex.name)}${lab ? ' ' + esc(lab) : ''}"><span class="small muted">kg</span></label>`;
+      const ins = !kg ? '<span class="small muted">Sin peso</span>' : P ? P.map((pt, k) => inp(pt.weight, k, P.length > 1 ? (pt.label || 'Parte ' + (k + 1)) : '')).join('') : inp(ex.weight, null, '');
+      const sch = (P ? P.map(pt => `${pt.sets}×${pt.reps || '?'}`).join(' + ') : ex.sets ? `${ex.sets}×${ex.reps || '?'}` : ex.reps || '');
+      const pts = h.map(x => ({ x: pd(x.d).getTime(), y: x.w }));
+      const up = h.length > 1 ? h[h.length-1].w - h[0].w : 0;
+      return `${head}<div class="exl"><div class="row between" style="align-items:flex-start"><h3 class="grow">${esc(ex.name)}</h3><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">${ins}</div></div>
+        ${sch || h.length ? `<div class="meta">${sch ? `Series: <b>${esc(sch)}</b>` : ''}${h.length ? `${sch ? '<br>' : ''}Historial: <b>${h.slice(-6).map(x => fmtN(x.w)).join(' → ')} kg</b>${h.length > 1 ? ` <span style="color:${up > 0 ? 'var(--good)' : up < 0 ? 'var(--warn)' : 'inherit'}">(${up > 0 ? '+' : ''}${fmtN(up)})</span>` : ''} · desde ${fmtShort(h[h.length-1].d)}` : ''}</div>` : ''}
+        ${pts.length > 1 ? `<details><summary class="small">Ver gráfica de progreso</summary>${lineChart(pts, { label: 'Peso de rutina ' + ex.name, unit: 'kg' })}</details>` : ''}</div>`;
+    }).join('') || '<div class="empty">Este día no tiene ejercicios.</div>'}
+    <div class="row"><button class="primary grow" id="dw-save">Guardar pesos</button></div>`;
+  openSheet(`${dy.weekday != null ? DOWS[dy.weekday] + ' · ' : ''}${dy.name}`, inner, sh => {
+    $('#dw-save', sh).addEventListener('click', async () => {
+      $$('[data-wi]', sh).forEach(el => { const ex = rows[+el.dataset.wi].ex, v = num(el.value);
+        if (el.dataset.k != null) { ex.parts[+el.dataset.k].weight = v; if (+el.dataset.k === 0) ex.weight = v; } else ex.weight = v; });
+      // same exercise on other days (e.g. bench press Monday and Thursday) moves with it, if it had the same weight
+      rows.forEach(({ ex }) => { const o = (dy.blocks||[]).flatMap(b => b.exercises || []).find(e => norm(e.name) === norm(ex.name)); if (!o || exW(o) === exW(ex)) return;
+        np.days.forEach(d2 => { if (d2.id === did) return; (d2.blocks||[]).forEach(b => (b.exercises||[]).forEach(e2 => {
+          if (norm(e2.name) !== norm(ex.name) || exW(e2) !== exW(o) || !!e2.parts?.length !== !!ex.parts?.length || (e2.parts?.length || 0) !== (ex.parts?.length || 0)) return;
+          if (ex.parts?.length) e2.parts.forEach((pt, k) => pt.weight = ex.parts[k].weight); e2.weight = ex.weight; })); }); });
+      stampHist(np, p);
+      const btn = $('#dw-save', sh); btn.disabled = true;
+      if (await write(db => db.doc('programs/' + np.id).set(body(np)), 'Pesos de la rutina guardados')) closeSheet(); else btn.disabled = false;
+    });
+  });
+}
 function openEditor(pid) {
   const src = prog(pid);
   const draft = src ? clone(src) : { id: uid(), name: 'Nueva rutina', subtitle: '', color: 'ink', kind: 'gym', notes: '', order: S.programs.length, days: [{ id: uid(), name: 'Día 1', weekday: 1, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }] };
@@ -2292,6 +2412,7 @@ function openEditor(pid) {
       draft.days.forEach(d => d.blocks.forEach(b => b.exercises = b.exercises.filter(e => (e.name||'').trim())));
       // keep sets/reps/weight on the exercise as a summary of its sub-blocks
       draft.days.forEach(d => d.blocks.forEach(b => b.exercises.forEach(e => { if (e.parts?.length === 1 && !e.parts[0].rp) setType(e, 'normal'); if (!e.parts?.length) { delete e.parts; return; } e.sets = e.parts.reduce((t, pt) => t + (Number(pt.sets) || 0), 0); e.reps = e.parts[0].reps ?? ''; e.weight = e.parts[0].weight ?? null; })));
+      stampHist(draft, src);
       if (await write(db => db.doc('programs/' + draft.id).set(body(draft)), 'Rutina guardada')) closeSheet();
     });
     const del = $('#ed-del', sh);
@@ -2346,6 +2467,7 @@ document.addEventListener('click', ev => {
       it.best = Math.max(it.best || 0, n); it.since = today();
       saveHealth('adic', doc, `Racha de ${n} ${n === 1 ? 'día' : 'días'} guardada. Hoy empiezas de nuevo.`); break;
     }
+    case 'tier': tierSheet(ds.k); break;
     case 'gate': { const c = { ...(S.plan.checks || {}) }; if (c[ds.g]) delete c[ds.g]; else c[ds.g] = today(); savePlan({ checks: c }); break; }
     case 'advance': {
       if (ds.armed !== '1') { a.dataset.armed = '1'; a.textContent = 'Confirmar: pasar de fase sin cumplir todo'; break; }
@@ -2364,6 +2486,7 @@ document.addEventListener('click', ev => {
       break;
     }
     case 'edit': openEditor(ds.p); break;
+    case 'dayw': openDayWeights(ds.p, ds.d); break;
     case 'rseg': S.regSeg = ds.v; try { localStorage.setItem('tg-regseg', ds.v); } catch (e) {} render(); window.scrollTo(0, 0); break;
     case 'ndate': { const nd = dayShift(S.nutDate || today(), Number(ds.v)); if (nd <= today()) { S.nutDate = nd; render(); } break; }
     case 'gonut': closeSheet(); S.tab = 'reg'; S.regSeg = 'nut'; S.nutDate = ds.date; try { localStorage.setItem('tg-tab', 'reg'); localStorage.setItem('tg-regseg', 'nut'); } catch (e) {} render(); window.scrollTo(0, 0); break;
