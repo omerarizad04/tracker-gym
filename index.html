@@ -249,6 +249,10 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 /* logger */
 .exl{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
 .exl .meta{font-size:12.5px;color:var(--muted)}
+.exl .exmv{display:flex;gap:4px;flex:none;align-self:flex-start}
+.exl .exmv button[disabled]{opacity:.25}
+.exl{transition:border-color .3s}
+.exl.moved{border-color:var(--fg)}
 .exl .meta b{color:var(--fg);font-weight:500}
 .sets{display:flex;flex-direction:column;gap:6px}
 .set{display:grid;grid-template-columns:24px 1fr 1fr 44px 34px;gap:6px;align-items:center}
@@ -2023,7 +2027,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       if (it.block !== cur) { cur = it.block; if (it.block) head = `<span class="blocktag ${esc(it.tag)}">${esc(it.block)}</span>`; }
       const tgt = exTarget(it.target || {});
       return `${head}<div class="exl" data-i="${i}">
-        <div class="row between">${it.custom ? `<input data-k="name" class="grow" value="${esc(it.name)}" placeholder="Nombre del ejercicio" list="exnames" aria-label="Ejercicio">` : `<h3 class="grow">${esc(it.name)}</h3>`}<button type="button" class="icon ghost" data-rmex="${i}" aria-label="Quitar ejercicio">×</button></div>
+        <div class="row between">${it.custom ? `<input data-k="name" class="grow" value="${esc(it.name)}" placeholder="Nombre del ejercicio" list="exnames" aria-label="Ejercicio">` : `<h3 class="grow">${esc(it.name)}</h3>`}<span class="exmv">${items.length > 1 ? `<button type="button" class="icon ghost" data-mvex="${i}:-1" aria-label="Subir ejercicio"${i === 0 ? ' disabled' : ''}>↑</button><button type="button" class="icon ghost" data-mvex="${i}:1" aria-label="Bajar ejercicio"${i === items.length - 1 ? ' disabled' : ''}>↓</button>` : ''}<button type="button" class="icon ghost" data-rmex="${i}" aria-label="Quitar ejercicio">×</button></span></div>
         ${tgt || it.target?.note || it.last ? `<div class="meta">${tgt ? `Objetivo: <b>${esc(tgt)}</b>` : ''}${it.target?.note ? `${tgt ? ' · ' : ''}${esc(it.target.note)}` : ''}${it.last ? `<br>Última vez (${fmtShort(it.last.w.date)}): <b>${esc(setsTxt(it.last.e.sets, it.last.e.m2 || it.m.m2, it.last.e.parts))}</b>` : ''}</div>` : ''}
         ${(() => { const m = it.m || { m1: 'reps', m2: 'kg' }, none = m.m2 === 'none', k = isKg(m.m2) ? 'w' : 'x', lab = M2[m.m2]?.[0] || 'Kg';
           const P = it.parts?.length ? it.parts : null, multi = P && P.length > 1;
@@ -2140,6 +2144,16 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       if (rs) { sync(); const [i, j] = rs.dataset.rmset.split(':').map(Number); items[i].sets.splice(j, 1); draw(); return; }
       const rx = ev.target.closest('[data-rmex]');
       if (rx) { sync(); items.splice(+rx.dataset.rmex, 1); draw(); return; }
+      const mv = ev.target.closest('[data-mvex]');
+      if (mv) {
+        // reorder exercises to match the order they are actually done today; the saved session keeps this order
+        sync(); const [i, d] = mv.dataset.mvex.split(':').map(Number), j = i + d;
+        if (j < 0 || j >= items.length) return;
+        [items[i], items[j]] = [items[j], items[i]]; draw();
+        const el = $(`.exl[data-i="${j}"]`, list);
+        if (el) { el.classList.add('moved'); el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); setTimeout(() => el.classList.remove('moved'), 600); }
+        return;
+      }
       const ok = ev.target.closest('.ok');
       if (ok) { const on = ok.getAttribute('aria-pressed') !== 'true'; ok.setAttribute('aria-pressed', on ? 'true' : 'false'); if (on && auto) { rest.left = rest.dur; restStart(); } return; }
     });
