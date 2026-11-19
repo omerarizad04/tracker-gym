@@ -2058,7 +2058,8 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
       <div class="fgrid"><label class="f"><span class="label">Duración (min)</span><input id="lg-dur" type="number" inputmode="numeric" value="${existing?.duration ?? ''}" placeholder="${live ? 'automática' : ''}"></label>
       <label class="f"><span class="label">Sensación</span><select id="lg-feel">${['—', '1 · Muy mal', '2 · Flojo', '3 · Normal', '4 · Bien', '5 · Excelente'].map((o, k) => `<option value="${k || ''}"${String(existing?.feel ?? '') === String(k || '') ? ' selected' : ''}>${o}</option>`).join('')}</select></label></div>
       <label class="f"><span class="label">Notas (molestias, cardio HIIT, sensaciones)</span><textarea id="lg-notes">${esc(existing?.notes || '')}</textarea></label>
-      ${p && p.kind !== 'joints' ? `<label class="row small"><input id="lg-upd" type="checkbox" style="width:auto"> Si subí de peso, actualizar el objetivo de la rutina</label>` : ''}</section>
+      ${p && p.kind !== 'joints' ? `<label class="row small"><input id="lg-upd" type="checkbox" style="width:auto"> Si subí de peso, actualizar el objetivo de la rutina</label>` : ''}
+      ${p && day && p.kind !== 'joints' ? `<label class="row small" id="lg-structw" style="align-items:flex-start;display:none"><input id="lg-struct" type="checkbox" checked style="width:auto;margin-top:2px"> <span>Guardar en la rutina de <b>${esc(day.name)}</b> (solo este día): <span id="lg-structd"></span></span></label>` : ''}</section>
     <div class="row"><button class="primary grow" id="lg-save">${existing ? 'Guardar cambios' : 'Terminar y guardar'}</button>${existing ? '<button class="danger" id="lg-del">Borrar</button>' : ''}</div>
     <div style="height:150px" aria-hidden="true"></div>
     <div class="rest" id="rest"><div class="in2">
@@ -2071,7 +2072,20 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
   openSheet(dayName, inner, sh => {
     const list = $('#lg-list', sh);
     const sync = () => $$('.exl[data-i]', list).forEach(el => { const it = items[+el.dataset.i]; const nm = $('[data-k="name"]', el); if (nm) it.name = nm.value; it.sets = $$('.set[data-row]', el).map(r => ({ r: $('[data-k="r"]', r).value.trim(), w: $('[data-k="w"]', r)?.value.trim() ?? '', x: $('[data-k="x"]', r)?.value.trim() ?? '', ok: $('.ok', r).getAttribute('aria-pressed') === 'true', rp: r.dataset.rp === '1', ...(r.dataset.p != null ? { p: +r.dataset.p } : {}) })); });
-    const draw = () => { list.innerHTML = exHtml(); };
+    // exercises added to / dropped from this session compared with the routine day; they can be saved into that day only
+    const structDiff = () => {
+      if (!p || !day || p.kind === 'joints') return { add: [], rm: [] };
+      const cur = items.map(it => it.name.trim()).filter(Boolean), base = dayExNames(day);
+      const cs = new Set(cur.map(norm)), bs = new Set(base.map(norm));
+      return { add: [...new Map(cur.filter(n => !bs.has(norm(n))).map(n => [norm(n), n])).values()], rm: base.filter(n => !cs.has(norm(n))) };
+    };
+    const showDiff = () => {
+      const w = $('#lg-structw', sh); if (!w) return;
+      const { add, rm } = structDiff();
+      w.style.display = add.length || rm.length ? '' : 'none';
+      $('#lg-structd', sh).innerHTML = [add.length ? `añadir <b>${add.map(esc).join(', ')}</b>` : '', rm.length ? `quitar <b>${rm.map(esc).join(', ')}</b>` : ''].filter(Boolean).join(' · ');
+    };
+    const draw = () => { list.innerHTML = exHtml(); showDiff(); };
     draw();
     let iv = null;
     // ---- rest timer: counts down from an end timestamp, so it stays right after switching to Spotify and back ----
@@ -2185,10 +2199,28 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
         duration: dur, createdAt: existing?.createdAt || Date.now(), updatedAt: Date.now() };
       const btn = $('#lg-save', sh); btn.disabled = true;
       const ok = await write(db => db.doc('workouts/' + id).set(doc), `Sesión guardada${volume(doc) > 0 ? ' · ' + fmtI(volume(doc)) + ' kg de volumen' : ''}`);
-      if (ok && p && day && $('#lg-upd', sh)?.checked) {
-        const np = clone(p); let changed = 0;
+      const upd = $('#lg-upd', sh)?.checked, diff = $('#lg-struct', sh)?.checked ? structDiff() : { add: [], rm: [] };
+      if (ok && p && day && (upd || diff.add.length || diff.rm.length)) {
+        const np = clone(p); let changed = 0, moved = 0;
         const nd = np.days.find(d => d.id === day.id);
-        (nd.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => { const e = entries.find(e => norm(e.name) === norm(ex.name));
+        if (nd && (diff.add.length || diff.rm.length)) {
+          // exercise swaps go into this routine day only; other days keep their own exercises
+          const rm = new Set(diff.rm.map(norm));
+          (nd.blocks||[]).forEach(b => { const n = (b.exercises||[]).length; b.exercises = (b.exercises||[]).filter(ex => !rm.has(norm(ex.name))); moved += n - b.exercises.length; });
+          if (!nd.blocks?.length) nd.blocks = [{ title: '', tag: '', exercises: [] }];
+          diff.add.forEach(name => {
+            const e = entries.find(e => norm(e.name) === norm(name)); if (!e) return;
+            const ns = e.sets.filter(s => !s.rp), kg = isKg(e.m2);
+            const ex = { id: uid(), name: e.name, sets: Math.max(1, ns.length || e.sets.length), reps: ns[0]?.r ?? '', weight: kg ? maxW({ sets: ns }) : null, note: '' };
+            if (e.m1 !== 'reps' || e.m2 !== 'kg') { ex.m1 = e.m1; ex.m2 = e.m2; }
+            // place it after the exercise it followed in today's session, so it lands in the same spot next time
+            const ei = entries.indexOf(e); let at = null;
+            for (let k = ei - 1; k >= 0 && !at; k--) nd.blocks.forEach(b => { const x = b.exercises.findIndex(z => norm(z.name) === norm(entries[k].name)); if (x >= 0 && !at) at = [b, x + 1]; });
+            if (!at) at = [nd.blocks[0], 0];
+            at[0].exercises.splice(at[1], 0, ex); moved++;
+          });
+        }
+        if (upd) (nd.blocks||[]).forEach(b => (b.exercises||[]).forEach(ex => { const e = entries.find(e => norm(e.name) === norm(ex.name));
           if (ex.parts?.length) {
             if (!e || e.parts?.length !== ex.parts.length) return;
             ex.parts.forEach((pt, k) => { const ss = e.sets.filter(s => (s.p ?? 0) === k), mn = maxW({ sets: ss.filter(s => !s.rp) }), mr = maxW({ sets: ss.filter(s => s.rp) });
@@ -2198,7 +2230,7 @@ function openLogger({ date, p: pid, d: did, w: wid, free }) {
           }
           const m = e ? maxW(e) : null; if (m != null && (ex.weight == null || ex.weight === '' || m > Number(ex.weight))) { ex.weight = m; changed++; } }));
         if (changed) stampHist(np, p);
-        if (changed) await write(db => db.doc('programs/' + np.id).set(body(np)), `Guardado · ${changed} objetivo${changed > 1 ? 's' : ''} subido${changed > 1 ? 's' : ''}`);
+        if (changed || moved) await write(db => db.doc('programs/' + np.id).set(body(np)), [changed ? `${changed} objetivo${changed > 1 ? 's' : ''} subido${changed > 1 ? 's' : ''}` : '', moved ? `rutina de ${day.name} actualizada` : ''].filter(Boolean).join(' · ').replace(/^./, c => 'Guardado · ' + c));
       }
       if (ok) closeSheet(); else btn.disabled = false;
     });
