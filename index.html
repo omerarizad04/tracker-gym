@@ -281,6 +281,12 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 .edhead{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .dayed{border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
 .blked{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.exed{display:flex;flex-direction:column;gap:6px;border-radius:12px;position:relative}
+.exed .drag{flex:none;min-height:34px;min-width:30px;padding:0 4px;border:0;background:none;color:var(--muted);font-size:18px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.exed.dragging{opacity:.35}
+.dragghost{position:fixed;z-index:40;pointer-events:none;background:var(--surface);border:1px solid var(--fg);border-radius:12px;padding:10px 12px;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dropline{height:2px;background:var(--fg);border-radius:2px;margin:-4px 0}
+body.dragmode,body.dragmode *{user-select:none;-webkit-user-select:none}
 /* charts */
 .chart{width:100%;height:auto;display:block;overflow:visible}
 .chart text{fill:var(--muted);font-family:var(--font-mono);font-size:9px}
@@ -2415,9 +2421,9 @@ function openEditor(pid) {
             <div class="edsub">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="Sub-bloque (ej. Unilateral)" aria-label="Nombre del sub-bloque">${cols(pp, `<button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button>`)}</div>
               <div class="rprow"><label class="row small" style="gap:6px"><input type="checkbox" data-path="${pp}.rp" data-type="bool"${pt.rp ? ' checked' : ''} style="width:auto"> Última en RP</label>${pt.rp ? rpIn(pp, pt) : ''}</div>`; }).join('')}
               <button class="sm ghost" data-ed="addpart" ${ids} style="align-self:flex-start;font-size:12.5px;padding:5px 8px">+ Sub-bloque</button></div>`;
-            return `${head}
-            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px;min-width:0" aria-label="Nota"><select data-edtype ${ids} style="width:auto;font-size:13px;padding:5px 6px" aria-label="Tipo de series">${[['normal', 'Normal'], ['rp', 'Termina en RP'], ['sub', 'Sub-bloques']].map(([v, l]) => `<option value="${v}"${T === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
-            <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div>`; }).join('')}
+            return `<div class="exed" ${ids}>${head}
+            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><button type="button" class="drag" data-drag aria-label="Arrastrar para cambiar el orden" title="Mantén y arrastra">⠿</button><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px;min-width:0" aria-label="Nota"><select data-edtype ${ids} style="width:auto;font-size:13px;padding:5px 6px" aria-label="Tipo de series">${[['normal', 'Normal'], ['rp', 'Termina en RP'], ['sub', 'Sub-bloques']].map(([v, l]) => `<option value="${v}"${T === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
+            <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div></div>`; }).join('')}
           <button class="sm ghost" data-ed="addex" data-di="${di}" data-bi="${bi}" style="align-self:flex-start">+ Ejercicio</button></div>`).join('')}
         <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`).join('')}
       <button class="dashed" data-ed="addday">+ Añadir día</button>`;
@@ -2432,6 +2438,51 @@ function openEditor(pid) {
       if (el.dataset.type === 'bool' && ev.type === 'change') { if (v && ks[ks.length-1] === 'rp' && !hasV(o.rpW)) o.rpW = o.weight ?? null; const y = sh.scrollTop; draw(sh); sh.scrollTop = y; }
     };
     sh.addEventListener('input', onInput); sh.addEventListener('change', onInput);
+    // ---- drag ⠿ to reorder exercises within a day (also across its blocks); pointer events, so it works with a finger ----
+    sh.addEventListener('pointerdown', ev => {
+      const h = ev.target.closest('[data-drag]'); if (!h) return;
+      ev.preventDefault();
+      const card = h.closest('.exed'), from = { di: +card.dataset.di, bi: +card.dataset.bi, ei: +card.dataset.ei };
+      const dayEl = card.closest('.dayed');
+      const ghost = document.createElement('div'); ghost.className = 'dragghost';
+      ghost.textContent = draft.days[from.di].blocks[from.bi].exercises[from.ei].name || 'Ejercicio';
+      const r0 = card.getBoundingClientRect(); ghost.style.left = r0.left + 'px'; ghost.style.width = r0.width + 'px';
+      document.body.appendChild(ghost); document.body.classList.add('dragmode'); card.classList.add('dragging');
+      const line = document.createElement('div'); line.className = 'dropline';
+      let to = null, y = ev.clientY, raf = null;
+      const place = () => {
+        ghost.style.top = (y - 20) + 'px';
+        // drop target: before the first exercise whose middle is below the finger, inside the block under the finger
+        const blocks = $$('.blked', dayEl); let blk = blocks[0];
+        blocks.forEach(b => { if (b.getBoundingClientRect().top <= y) blk = b; });
+        const bi = blocks.indexOf(blk), cards = $$('.exed', blk).filter(c => c !== card);
+        const next = cards.find(c => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+        if (next) { blk.insertBefore(line, next); to = { bi, before: +next.dataset.ei }; }
+        else { const add = $('[data-ed="addex"]', blk); blk.insertBefore(line, add); to = { bi, before: null }; }
+      };
+      const scroll = () => {
+        // auto-scroll the sheet when the finger is near its top or bottom edge
+        const r = sh.getBoundingClientRect(), edge = 70;
+        const d = y < r.top + edge + 60 ? -12 : y > r.bottom - edge ? 12 : 0;
+        if (d) { sh.scrollTop += d; place(); }
+        raf = requestAnimationFrame(scroll);
+      };
+      const move = e => { if (e.pointerId !== ev.pointerId) return; e.preventDefault(); y = e.clientY; place(); };
+      const end = e => {
+        if (e.pointerId !== ev.pointerId) return;
+        cancelAnimationFrame(raf); removeEventListener('pointermove', move); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+        ghost.remove(); line.remove(); document.body.classList.remove('dragmode'); card.classList.remove('dragging');
+        if (!to || e.type === 'pointercancel') return;
+        const B = draft.days[from.di].blocks, ex = B[from.bi].exercises[from.ei];
+        const tgt = B[to.bi].exercises, ref = to.before == null ? null : B[to.bi].exercises[to.before];
+        B[from.bi].exercises.splice(from.ei, 1);
+        const at = ref ? tgt.indexOf(ref) : tgt.length;
+        tgt.splice(at, 0, ex);
+        const sy = sh.scrollTop; draw(sh); sh.scrollTop = sy;
+      };
+      addEventListener('pointermove', move, { passive: false }); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+      place(); raf = requestAnimationFrame(scroll);
+    });
     sh.addEventListener('change', ev => {
       const el = ev.target.closest('[data-edtype]'); if (!el) return;
       setType(draft.days[el.dataset.di].blocks[el.dataset.bi].exercises[el.dataset.ei], el.value);
