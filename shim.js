@@ -1,4 +1,4 @@
-/* Tracker Gym — standalone runtime.
+/* Temple — standalone runtime.
    The app code was written for claude.ai's `window.claude.use('db' | 'assets')`.
    This file provides the same API on top of Supabase so the same app runs as a
    home-screen app: login, an in-memory store mirrored to the `docs` table,
@@ -133,7 +133,7 @@
       el.id = 'auth';
       el.innerHTML = `<form class="authbox" novalidate>
         <div class="authlogo" aria-hidden="true"></div>
-        <h1>Tracker Gym</h1>
+        <h1>Temple</h1>
         <p class="muted" style="margin:0">Entra con tu cuenta para ver tus rutinas y tu progreso.</p>
         <label class="f"><span class="label">Correo</span><input id="au-email" type="email" autocomplete="username" inputmode="email" required></label>
         <label class="f"><span class="label">Contraseña</span><input id="au-pass" type="password" autocomplete="current-password" minlength="6" required></label>
