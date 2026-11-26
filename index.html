@@ -282,8 +282,23 @@ nav.tabs button[aria-current="page"]::before{content:"";position:absolute;top:0;
 .dayed{border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface)}
 .blked{border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px}
 .exed{display:flex;flex-direction:column;gap:6px;border-radius:12px;position:relative}
-.exed .drag{flex:none;min-height:34px;min-width:30px;padding:0 4px;border:0;background:none;color:var(--muted);font-size:18px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.exed .drag{flex:none;min-height:34px;min-width:22px;padding:0 2px;border:0;background:none;color:var(--muted);font-size:18px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .exed.dragging{opacity:.35}
+.exmain{display:flex;align-items:center;gap:4px}.exmain .edrow{flex:1;min-width:0}
+.exed .more{font-size:18px;line-height:1;color:var(--muted);min-width:28px;min-height:34px;padding:0;border-color:transparent}.exed .more.on{color:var(--fg);border-color:var(--edge)}
+.exmore{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-left:26px;padding:10px;border:1px solid var(--line);border-radius:12px}
+.exmore select,.exmore input{font-size:14px}
+.exnote{margin:-2px 0 0 30px;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.daylist{display:flex;flex-direction:column;gap:8px}
+.dayrow{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);text-align:left;color:inherit;font-weight:400;min-height:62px}
+.dayrow:hover{border-color:var(--edge)}
+.dayrow .wd{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:34px}
+.dayrow .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:15px}
+.dayrow .ct{font-size:12.5px;color:var(--muted)}
+.dayrow .chev{color:var(--muted);font-size:20px}
+.dtabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}.dtabs::-webkit-scrollbar{display:none}
+.dtabs button{flex:none;min-height:32px;padding:5px 12px;font-size:12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em}
+.dtabs button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .dragghost{position:fixed;z-index:40;pointer-events:none;background:var(--surface);border:1px solid var(--fg);border-radius:12px;padding:10px 12px;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dropline{height:2px;background:var(--fg);border-radius:2px;margin:-4px 0}
 body.dragmode,body.dragmode *{user-select:none;-webkit-user-select:none}
@@ -440,7 +455,7 @@ details.more[open] summary::after{content:"−"}
 .crow.done .cmain{opacity:.5}
 .crow.done .cmain b{text-decoration:line-through}
 @media (prefers-reduced-motion:no-preference){#sheet{animation:up .22s cubic-bezier(.2,.8,.2,1)}@keyframes up{from{transform:translateY(40px);opacity:.5}}}
-@media (max-width:420px){.edrow{grid-template-columns:minmax(0,1fr) 46px 56px 60px 30px}h1{font-size:28px}.hero .big{font-size:46px}.ring{width:88px;height:88px}.nutgrid b{font-size:16px}}
+@media (max-width:420px){.edrow{grid-template-columns:minmax(0,1fr) 38px 50px 52px 28px;gap:5px}.edrow input{padding:8px 5px}h1{font-size:28px}.hero .big{font-size:46px}.ring{width:88px;height:88px}.nutgrid b{font-size:16px}}
 </style>
 
 <div class="wrap">
@@ -2399,35 +2414,47 @@ function openDayWeights(pid, did) {
 function openEditor(pid) {
   const src = prog(pid);
   const draft = src ? clone(src) : { id: uid(), name: 'Nueva rutina', subtitle: '', color: 'ink', kind: 'gym', notes: '', order: S.programs.length, days: [{ id: uid(), name: 'Día 1', weekday: 1, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }] };
-  const draw = sh => {
-    $('#ed-body', sh).innerHTML = `<section class="card soft"><div class="fgrid">
+  // two levels so it never shows everything at once: the list of days → one day at a time
+  let view = null; const openEx = new WeakSet();
+  const exCount = d => (d.blocks || []).reduce((t, b) => t + (b.exercises || []).filter(e => (e.name || '').trim()).length, 0);
+  const drawList = () => `<section class="card soft" style="gap:10px"><div class="fgrid">
         <label class="f"><span class="label">Nombre</span><input data-path="name" value="${esc(draft.name)}"></label>
-        <label class="f"><span class="label">Descripción</span><input data-path="subtitle" value="${esc(draft.subtitle||'')}"></label>
+        <label class="f"><span class="label">Descripción</span><input data-path="subtitle" value="${esc(draft.subtitle||'')}"></label></div>
+      <details class="more"><summary class="small muted"><span>Color, tipo y notas</span></summary><div class="fgrid" style="margin-top:10px">
         <label class="f"><span class="label">Color</span><select data-path="color">${Object.entries(COLORS).map(([c, n]) => `<option value="${c}"${draft.color === c ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
         <label class="f"><span class="label">Tipo</span><select data-path="kind"><option value="gym"${draft.kind !== 'joints' ? ' selected' : ''}>Rutina principal</option><option value="joints"${draft.kind === 'joints' ? ' selected' : ''}>Complementaria (movilidad)</option></select></label></div>
-      <label class="f"><span class="label">Notas generales</span><textarea data-path="notes">${esc(draft.notes||'')}</textarea></label></section>
-      ${draft.days.map((d, di) => `<div class="dayed"><div class="fgrid"><label class="f"><span class="label">Día</span><input data-path="days.${di}.name" value="${esc(d.name)}"></label>
+        <label class="f" style="margin-top:10px"><span class="label">Notas generales</span><textarea data-path="notes">${esc(draft.notes||'')}</textarea></label></details></section>
+      <div class="sec"><span class="t">Días</span><span class="m">Toca uno para editarlo</span></div>
+      <div class="daylist">${draft.days.map((d, di) => { const n = exCount(d), nb = (d.blocks || []).length; return `<button type="button" class="dayrow" data-ed="open" data-di="${di}"><span class="wd">${d.weekday != null ? DOWS[d.weekday] : '—'}</span><span class="nm">${esc(d.name || 'Sin nombre')}<span class="ct">${n} ejercicio${n === 1 ? '' : 's'}${nb > 1 ? ` · ${nb} bloques` : ''}</span></span><span class="chev">›</span></button>`; }).join('')}</div>
+      <button class="dashed" data-ed="addday">+ Añadir día</button>`;
+  const drawDay = di => { const d = draft.days[di];
+    return `<div class="row"><button class="sm ghost" data-ed="back" style="padding-left:4px">‹ Todos los días</button></div>
+      ${draft.days.length > 1 ? `<div class="dtabs">${draft.days.map((x, k) => `<button type="button" data-ed="open" data-di="${k}"${k === di ? ' class="on"' : ''}>${x.weekday != null ? DOWS[x.weekday] : esc((x.name || 'Día').slice(0, 10))}</button>`).join('')}</div>` : ''}
+      <div class="dayed"><div class="fgrid"><label class="f"><span class="label">Día</span><input data-path="days.${di}.name" value="${esc(d.name)}"></label>
         <label class="f"><span class="label">Día de la semana</span><select data-path="days.${di}.weekday" data-type="weekday"><option value="">Sin día fijo</option>${[1,2,3,4,5,6,0].map(w => `<option value="${w}"${d.weekday === w ? ' selected' : ''}>${DOW[w]}</option>`).join('')}</select></label></div>
-        ${(d.blocks||[]).map((b, bi) => `<div class="blked"><div class="row"><input class="grow" data-path="days.${di}.blocks.${bi}.title" value="${esc(b.title||'')}" placeholder="Bloque (ej. Hipertrofia, Core)" aria-label="Nombre del bloque"><select data-path="days.${di}.blocks.${bi}.tag" style="width:auto" aria-label="Color del bloque">${['', 'HIPERTROFIA', 'CORE', 'POTENCIA', 'MOVILIDAD'].map(t => `<option value="${t}"${b.tag === t ? ' selected' : ''}>${t || 'Etiqueta…'}</option>`).join('')}</select><button class="icon ghost" data-ed="rmblock" data-di="${di}" data-bi="${bi}" aria-label="Borrar bloque" style="color:var(--bad)">×</button></div>
-          <div class="edrow edhead"><span>Ejercicio</span><span>Series</span><span>Reps</span><span>Kg</span><span></span></div>
-          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`, ids = `data-di="${di}" data-bi="${bi}" data-ei="${ei}"`, P = ex.parts?.length ? ex.parts : null, T = !P ? 'normal' : P.length > 1 ? 'sub' : 'rp';
-            const rmx = `<button class="icon ghost" data-ed="rmex" ${ids} aria-label="Quitar">×</button>`;
+        ${(d.blocks||[]).map((b, bi) => `<div class="blked"><div class="row"><input class="grow" data-path="days.${di}.blocks.${bi}.title" value="${esc(b.title||'')}" placeholder="Bloque (ej. Hipertrofia, Core)" aria-label="Nombre del bloque"><select data-path="days.${di}.blocks.${bi}.tag" style="width:auto" aria-label="Color del bloque">${['', 'HIPERTROFIA', 'CORE', 'POTENCIA', 'MOVILIDAD'].map(t => `<option value="${t}"${b.tag === t ? ' selected' : ''}>${t || 'Etiqueta…'}</option>`).join('')}</select>${d.blocks.length > 1 ? `<button class="icon ghost" data-ed="rmblock" data-di="${di}" data-bi="${bi}" aria-label="Borrar bloque" style="color:var(--bad)">×</button>` : ''}</div>
+          ${(b.exercises||[]).length ? '<div class="edrow edhead" style="margin-left:26px"><span>Ejercicio</span><span>Ser.</span><span>Reps</span><span>Kg</span><span></span></div>' : '<p class="small muted" style="margin:0">Sin ejercicios todavía.</p>'}
+          ${(b.exercises||[]).map((ex, ei) => { const pth = `days.${di}.blocks.${bi}.exercises.${ei}`, ids = `data-di="${di}" data-bi="${bi}" data-ei="${ei}"`, P = ex.parts?.length ? ex.parts : null, T = !P ? 'normal' : P.length > 1 ? 'sub' : 'rp', isOpen = openEx.has(ex);
+            const more = `<button class="icon ghost more${isOpen ? ' on' : ''}" data-ed="more" ${ids} aria-label="Más opciones" aria-expanded="${isOpen}">⋯</button>`;
             const cols = (b0, rm) => `<input data-path="${b0}.sets" data-type="num" inputmode="numeric" value="${(b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).sets ?? ''}" aria-label="Series"><input data-path="${b0}.reps" value="${esc((b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).reps ?? '')}" aria-label="Reps"><input data-path="${b0}.weight" data-type="num" inputmode="decimal" value="${(b0 === pth ? ex : ex.parts[+b0.split('.').pop()]).weight ?? ''}" aria-label="Kg">${rm}`;
             const rpIn = (pp, pt) => `<input data-path="${pp}.rpW" data-type="num" inputmode="decimal" value="${pt.rpW ?? ''}" placeholder="kg" aria-label="Kg al empezar el rest-pause"> → <input data-path="${pp}.rpTo" data-type="num" inputmode="decimal" value="${pt.rpTo ?? ''}" placeholder="kg" aria-label="Kg al bajar"> kg`;
-            const nameIn = `<input data-path="${pth}.name" value="${esc(ex.name)}" aria-label="Ejercicio">`;
-            const head = T === 'normal' ? `<div class="edrow">${nameIn}${cols(pth, rmx)}</div>`
-              : T === 'rp' ? `<div class="edrow">${nameIn}${cols(pth + '.parts.0', rmx)}</div><div class="rprow" style="padding-left:4px">La última serie es RP:${rpIn(pth + '.parts.0', P[0])}</div>`
-              : `<div class="edrow">${nameIn}<span class="muted small" style="grid-column:span 3;text-align:center">${P.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series · ${P.length} partes</span>${rmx}</div>
-            <div class="edsub">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="Sub-bloque (ej. Unilateral)" aria-label="Nombre del sub-bloque">${cols(pp, `<button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button>`)}</div>
+            const nameIn = `<input data-path="${pth}.name" value="${esc(ex.name)}" placeholder="Ejercicio" aria-label="Ejercicio">`;
+            const drag = `<button type="button" class="drag" data-drag aria-label="Arrastrar para cambiar el orden" title="Mantén y arrastra">⠿</button>`;
+            const head = T === 'normal' ? `<div class="exmain">${drag}<div class="edrow">${nameIn}${cols(pth, more)}</div></div>`
+              : T === 'rp' ? `<div class="exmain">${drag}<div class="edrow">${nameIn}${cols(pth + '.parts.0', more)}</div></div><div class="rprow" style="padding-left:30px">La última serie es RP:${rpIn(pth + '.parts.0', P[0])}</div>`
+              : `<div class="exmain">${drag}<div class="edrow">${nameIn}<span class="muted small" style="grid-column:span 3;text-align:center">${P.reduce((t, pt) => t + (Number(pt.sets) || 0), 0)} series · ${P.length} partes</span>${more}</div></div>
+            <div class="edsub" style="margin-left:32px">${P.map((pt, k) => { const pp = `${pth}.parts.${k}`; return `<div class="edrow"><input data-path="${pp}.label" value="${esc(pt.label || '')}" placeholder="Sub-bloque (ej. Unilateral)" aria-label="Nombre del sub-bloque">${cols(pp, `<button class="icon ghost" data-ed="rmpart" ${ids} data-k="${k}" aria-label="Quitar sub-bloque">×</button>`)}</div>
               <div class="rprow"><label class="row small" style="gap:6px"><input type="checkbox" data-path="${pp}.rp" data-type="bool"${pt.rp ? ' checked' : ''} style="width:auto"> Última en RP</label>${pt.rp ? rpIn(pp, pt) : ''}</div>`; }).join('')}
               <button class="sm ghost" data-ed="addpart" ${ids} style="align-self:flex-start;font-size:12.5px;padding:5px 8px">+ Sub-bloque</button></div>`;
-            return `<div class="exed" ${ids}>${head}
-            <div class="row" style="gap:6px;flex-wrap:nowrap;margin-top:-2px"><button type="button" class="drag" data-drag aria-label="Arrastrar para cambiar el orden" title="Mantén y arrastra">⠿</button><input class="grow" data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Nota (opcional)" style="font-size:13px;padding:5px 8px;min-width:0" aria-label="Nota"><select data-edtype ${ids} style="width:auto;font-size:13px;padding:5px 6px" aria-label="Tipo de series">${[['normal', 'Normal'], ['rp', 'Termina en RP'], ['sub', 'Sub-bloques']].map(([v, l]) => `<option value="${v}"${T === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
-            <select data-path="${pth}.m2" style="width:auto;font-size:13px;padding:5px 6px" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></div></div>`; }).join('')}
+            const opts = isOpen ? `<div class="exmore"><label class="f" style="grid-column:1/-1"><span class="label">Nota</span><input data-path="${pth}.note" value="${esc(ex.note||'')}" placeholder="Opcional"></label>
+              <label class="f"><span class="label">Series</span><select data-edtype ${ids} aria-label="Tipo de series">${[['normal', 'Normal'], ['rp', 'Termina en RP'], ['sub', 'Sub-bloques']].map(([v, l]) => `<option value="${v}"${T === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+              <label class="f"><span class="label">Anotar además</span><select data-path="${pth}.m2" aria-label="Qué se anota además de las reps">${(() => { const auto = exMetric({ name: ex.name, reps: ex.reps }).m2; return [['', `Auto · ${M2[auto][0]}`], ...Object.entries(M2).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<option value="${k}"${(ex.m2 || '') === k ? ' selected' : ''}>${l}</option>`).join(''); })()}</select></label>
+              <button class="sm danger" data-ed="rmex" ${ids} style="grid-column:1/-1;justify-self:start">Quitar ejercicio</button></div>`
+              : ex.note ? `<div class="exnote">${esc(ex.note)}</div>` : '';
+            return `<div class="exed" ${ids}>${head}${opts}</div>`; }).join('')}
           <button class="sm ghost" data-ed="addex" data-di="${di}" data-bi="${bi}" style="align-self:flex-start">+ Ejercicio</button></div>`).join('')}
-        <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`).join('')}
-      <button class="dashed" data-ed="addday">+ Añadir día</button>`;
-  };
+        <div class="row"><button class="sm" data-ed="addblock" data-di="${di}">+ Bloque</button><button class="sm danger" data-ed="rmday" data-di="${di}">Borrar día</button></div></div>`; };
+  const draw = sh => { if (view != null && !draft.days[view]) view = null; $('#ed-body', sh).innerHTML = view == null ? drawList() : drawDay(view); };
   const inner = `<div id="ed-body" style="display:flex;flex-direction:column;gap:12px"></div><div class="row"><button class="primary grow" id="ed-save">Guardar rutina</button>${src ? '<button class="danger" id="ed-del">Borrar rutina</button>' : ''}</div>`;
   openSheet(src ? 'Editar rutina' : 'Nueva rutina', inner, sh => {
     draw(sh);
@@ -2491,7 +2518,9 @@ function openEditor(pid) {
     sh.addEventListener('click', ev => {
       const b = ev.target.closest('[data-ed]'); if (!b) return;
       const { di, bi, ei } = b.dataset; const D = draft.days;
+      if (b.dataset.ed === 'open' || b.dataset.ed === 'back') { view = b.dataset.ed === 'open' ? +di : null; draw(sh); sh.scrollTop = 0; return; }
       switch (b.dataset.ed) {
+        case 'more': { const ex = D[di].blocks[bi].exercises[ei]; if (openEx.has(ex)) openEx.delete(ex); else openEx.add(ex); break; }
         case 'addex': D[di].blocks[bi].exercises.push({ id: uid(), name: '', sets: 2, reps: '', weight: null, note: '' }); break;
         case 'rmex': D[di].blocks[bi].exercises.splice(ei, 1); break;
         case 'addpart': { const ex = D[di].blocks[bi].exercises[ei], l = ex.parts[ex.parts.length-1];
@@ -2499,8 +2528,8 @@ function openEditor(pid) {
         case 'rmpart': { const ex = D[di].blocks[bi].exercises[ei]; ex.parts.splice(+b.dataset.k, 1); if (ex.parts.length === 1 && !ex.parts[0].rp) setType(ex, 'normal'); else if (!ex.parts.length) delete ex.parts; break; }
         case 'addblock': D[di].blocks.push({ id: uid(), title: '', tag: '', exercises: [] }); break;
         case 'rmblock': D[di].blocks.splice(bi, 1); break;
-        case 'addday': D.push({ id: uid(), name: 'Día ' + (D.length + 1), weekday: null, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }); break;
-        case 'rmday': if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar'; return; } D.splice(di, 1); break;
+        case 'addday': D.push({ id: uid(), name: 'Día ' + (D.length + 1), weekday: null, blocks: [{ id: uid(), title: '', tag: '', exercises: [] }] }); view = D.length - 1; draw(sh); sh.scrollTop = 0; return;
+        case 'rmday': if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Confirmar'; return; } D.splice(di, 1); view = null; draw(sh); sh.scrollTop = 0; return;
       }
       const y = sh.scrollTop; draw(sh); sh.scrollTop = y;
       if (b.dataset.ed === 'addex') { const rows = $$(`[data-path^="days.${di}.blocks.${bi}.exercises."][data-path$=".name"]`, sh); rows[rows.length-1]?.focus(); }
